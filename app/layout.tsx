@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { Footer } from "@/components/footer";
 import { Header } from "@/components/header";
 
 import "./globals.css";
@@ -16,6 +17,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <div className="page">
           <Header />
           {children}
+          <Footer />
         </div>
       </body>
     </html>

@@ -1,11 +1,16 @@
+import type { Route } from "next";
 import Link from "next/link";
 
 import { formatDate, formatPercent } from "@/lib/format";
 import { DaoConfig, Proposal } from "@/lib/types";
 
 export function ProposalCard({ dao, proposal }: { dao: DaoConfig; proposal: Proposal }) {
+  const href = (
+    dao.slug ? `/daos/${dao.slug}/proposals/${proposal.slug}` : `/proposals/${proposal.slug}`
+  ) as Route;
+
   return (
-    <Link href={`/daos/${dao.slug}/proposals/${proposal.slug}`} className="proposal-card">
+    <Link href={href} className="proposal-card">
       <div className="row-between">
         <div>
           <div className="eyebrow">{proposal.id}</div>

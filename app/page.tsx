@@ -1,11 +1,50 @@
 import Link from "next/link";
 
-import { DaoCard } from "@/components/dao-card";
+import { DaoDirectory } from "@/components/dao-directory";
+import { DaoOverview } from "@/components/dao-overview";
+import { SetupGuide } from "@/components/setup-guide";
 import { WalletCard } from "@/components/wallet-card";
-import { ethereumDaoTargets, getDaos } from "@/lib/data";
+import { getConfiguredDaos, getPrimaryDao, getSiteMode, getTsloConfig } from "@/lib/config";
+import { ethereumDaoTargets } from "@/lib/data";
+import { getLivePrimaryDao } from "@/lib/live";
 
-export default function HomePage() {
-  const daos = getDaos();
+export const dynamic = "force-dynamic";
+
+export default async function HomePage() {
+  const mode = getSiteMode();
+  const daos = getConfiguredDaos();
+  const primaryDao = getPrimaryDao();
+  const config = getTsloConfig();
+
+  if (mode === "setup") {
+    return <SetupGuide />;
+  }
+
+  if (mode === "single" && primaryDao) {
+    const livePrimaryDao = (await getLivePrimaryDao()) ?? primaryDao;
+
+    return (
+      <>
+        <DaoOverview dao={{ ...livePrimaryDao, slug: "" }} apiBasePath="/api/dao" />
+        <section className="shell section grid-2">
+          <div className="panel">
+            <div className="eyebrow">Deployment Mode</div>
+            <h3 className="card-title">Single DAO install</h3>
+            <p className="muted">
+              This deployment behaves like a single-site WordPress install. The DAO is the site, so
+              proposal routes omit the DAO slug and branding follows the configured protocol.
+            </p>
+            <div className="pill-row">
+              <span className="metric-pill">{livePrimaryDao.name}</span>
+              <span className="metric-pill">{livePrimaryDao.chainName}</span>
+              <span className="metric-pill">{config.siteName}</span>
+            </div>
+          </div>
+          <WalletCard />
+        </section>
+      </>
+    );
+  }
 
   return (
     <main className="shell">
@@ -15,12 +54,12 @@ export default function HomePage() {
             <div className="eyebrow">TSLO • Tally Shall Live On</div>
             <h1>Governance continuity for DAOs.</h1>
             <p className="lede">
-              TSLO is a free, open-source replacement for Tally’s core governance workflows. This
-              MVP focuses on the fastest route to launch for OpenZeppelin Governor DAOs.
+              This deployment runs in directory mode. Use the search below to select a DAO and open
+              its branded governance space.
             </p>
             <div className="cta-row">
               <Link href={`/daos/${daos[0].slug}`} className="button">
-                View sample DAO
+                Open first DAO
               </Link>
               <Link href="/api/daos" className="button-secondary">
                 Read API
@@ -47,19 +86,8 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="section">
-        <div className="row-between">
-          <div>
-            <div className="eyebrow">DAOs</div>
-            <h2 className="section-title">Ready-to-index governance spaces</h2>
-          </div>
-          <p className="muted">DAO onboarding is config-driven so TSLO can ship faster.</p>
-        </div>
-        <div className="dao-list">
-          {daos.map((dao) => (
-            <DaoCard key={dao.slug} dao={dao} />
-          ))}
-        </div>
+      <section className="section" id="directory">
+        <DaoDirectory daos={daos} />
       </section>
 
       <section className="section grid-2">

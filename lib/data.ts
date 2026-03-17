@@ -1,13 +1,12 @@
 import { DaoConfig } from "@/lib/types";
 
-export const daos: DaoConfig[] = [
+export const fixtureDaos: DaoConfig[] = [
   {
     slug: "ens",
     name: "ENS DAO",
     shortName: "ENS",
-    tagline: "Ethereum naming governed onchain by ENS token delegates.",
-    description:
-      "ENS DAO is a strong first compatibility target for TSLO because it runs on Ethereum mainnet with an OpenZeppelin Governor and a standard timelock-backed proposal lifecycle. It is one of the most prominent DAOs on Tally and its governance flows map closely to the MVP surface TSLO already targets.",
+    tagline: "The ENS DAO governs the ENS protocol and treasury.",
+    description: "The ENS DAO governs the ENS protocol and treasury.",
     chainId: 1,
     chainName: "Ethereum",
     governanceType: "OpenZeppelin Governor",
@@ -365,16 +364,16 @@ export const ethereumDaoTargets = [
   }
 ] as const;
 
-export function getDaos() {
-  return daos;
+export function getFixtureDaos() {
+  return fixtureDaos;
 }
 
-export function getDaoBySlug(slug: string) {
-  return daos.find((dao) => dao.slug === slug);
+export function getFixtureDaoBySlug(slug: string) {
+  return fixtureDaos.find((dao) => dao.slug === slug);
 }
 
-export function getProposalById(slug: string, proposalId: string) {
-  const dao = getDaoBySlug(slug);
+export function getFixtureProposalById(slug: string, proposalId: string) {
+  const dao = getFixtureDaoBySlug(slug);
   return dao?.proposals.find(
     (proposal) =>
       proposal.id.toLowerCase() === proposalId.toLowerCase() ||

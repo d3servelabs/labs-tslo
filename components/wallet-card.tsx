@@ -7,7 +7,7 @@ import { formatAddress } from "@/lib/format";
 declare global {
   interface Window {
     ethereum?: {
-      request: (args: { method: string }) => Promise<string[]>;
+      request: (args: { method: string }) => Promise<unknown>;
     };
   }
 }
@@ -23,7 +23,7 @@ export function WalletCard() {
     }
 
     try {
-      const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+      const accounts = (await window.ethereum.request({ method: "eth_requestAccounts" })) as string[];
       setAccount(accounts[0] ?? null);
       setStatus("Wallet connected. Contract write adapters are the next implementation layer.");
     } catch {
@@ -36,8 +36,9 @@ export function WalletCard() {
       <div className="eyebrow">Write Flow Readiness</div>
       <h3 className="card-title">Wallet adapter stub</h3>
       <p className="muted">
-        MVP foundation includes connection state and capability messaging. The next step is wiring
-        proposal, vote, delegation, queue, execute, and cancel actions to Governor contracts.
+        Reads should stay public. Wallet connection is only required for writes, and TSLO should
+        surface explicit states for not connected, wrong network, unsupported action, pending, and
+        confirmed transactions.
       </p>
       {account ? <div className="wallet-badge">{formatAddress(account)}</div> : null}
       <div className="action-row">

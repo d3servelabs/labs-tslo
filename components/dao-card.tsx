@@ -1,11 +1,15 @@
+import type { Route } from "next";
 import Link from "next/link";
 
+import { getSiteMode } from "@/lib/config";
 import { formatPercent } from "@/lib/format";
 import { DaoConfig } from "@/lib/types";
 
 export function DaoCard({ dao }: { dao: DaoConfig }) {
+  const href = (getSiteMode() === "single" ? "/" : `/daos/${dao.slug}`) as Route;
+
   return (
-    <Link href={`/daos/${dao.slug}`} className="dao-card">
+    <Link href={href} className="dao-card">
       <div className="row-between">
         <div>
           <div className="eyebrow">

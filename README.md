@@ -3,23 +3,54 @@
 TSLO is a free, open-source governance continuity app for DAOs that need a fast migration path from Tally. This repository currently implements the MVP foundation:
 
 - a Next.js governance frontend
-- config-driven DAO onboarding
+- config-driven deployment modes
 - normalized JSON read APIs
 - sample DAO and proposal pages, including ENS DAO
-- wallet-connect stub for future Governor write actions
+- global wallet-connect stub for future Governor write actions
+
+## Product plan
+
+The current product and implementation plan is stored in [docs/plan.md](./docs/plan.md).
+
+It covers:
+
+- zero-DAO setup mode
+- branded single-DAO mode as the primary deployment shape
+- multi-DAO directory mode as the alternative
+- slug behavior across single-site and network-style installs
+- wallet connect and write-flow handling
+
+## Deployment modes
+
+TSLO is now driven by `tslo.config.ts`.
+
+- `0` DAOs: setup mode
+- `1` DAO: branded single-site mode
+- `2+` DAOs: searchable directory mode
+
+Example configs:
+
+- [config/examples/empty.ts](./config/examples/empty.ts)
+- [config/examples/single-ens.ts](./config/examples/single-ens.ts)
+- [config/examples/multi-ens-arbitrum-uniswap.ts](./config/examples/multi-ens-arbitrum-uniswap.ts)
 
 ## Routes
 
-- `/` landing page and MVP scope
-- `/daos/arbor-collective` DAO overview
-- `/daos/ens` ENS DAO overview
-- `/daos/ens/proposals/treasury-flow-automation` ENS proposal detail
-- `/daos/arbor-collective/proposals/renew-grants-budget` proposal detail
+Single DAO mode:
+
+- `/`
+- `/proposals/treasury-flow-automation`
+- `/api/dao`
+- `/api/proposals/treasury-flow-automation`
+
+Multi DAO mode:
+
+- `/`
+- `/daos/ens`
+- `/daos/ens/proposals/treasury-flow-automation`
 - `/api/daos`
 - `/api/daos/ens`
-- `/api/daos/arbor-collective`
 - `/api/daos/ens/proposals/treasury-flow-automation`
-- `/api/daos/arbor-collective/proposals/renew-grants-budget`
 
 ## Local development
 
@@ -32,7 +63,7 @@ Open `http://localhost:3000`.
 
 ## Next implementation layer
 
-- replace fixture data with an indexer-backed store
+- replace fixture data with a live query or indexer-backed store
 - add Governor contract capability detection during DAO onboarding
+- replace the wallet stub with a shared `viem`-based wallet layer
 - implement write adapters for propose, vote, delegate, queue, execute, and cancel
-- add multichain ingest and backfill jobs

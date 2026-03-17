@@ -1,10 +1,16 @@
 import { NextResponse } from "next/server";
 
-import { getDaos } from "@/lib/data";
+import { getConfiguredDaos, getSiteMode } from "@/lib/config";
+
+export const dynamic = "force-dynamic";
 
 export function GET() {
+  if (getSiteMode() === "single") {
+    return NextResponse.json({ error: "Use /api/dao in single-DAO mode." }, { status: 404 });
+  }
+
   return NextResponse.json({
-    daos: getDaos().map((dao) => ({
+    daos: getConfiguredDaos().map((dao) => ({
       slug: dao.slug,
       name: dao.name,
       shortName: dao.shortName,

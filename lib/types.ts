@@ -5,7 +5,8 @@ export type ProposalState =
   | "defeated"
   | "queued"
   | "executed"
-  | "canceled";
+  | "canceled"
+  | "expired";
 
 export type GovernanceCapability =
   | "propose"
@@ -105,4 +106,30 @@ export interface DaoConfig {
     detail: string;
   }>;
   proposals: Proposal[];
+}
+
+export interface TsloDaoConfigInput {
+  slug?: string;
+  name: string;
+  officialSiteUrl: string;
+  forumUrl?: string;
+  docsUrl?: string;
+  treasuryUrl?: string;
+  chainId: number;
+  chainName: string;
+  startBlock?: number;
+  governorAddress: string;
+  tokenAddress: string;
+  timelockAddress?: string;
+  branding?: {
+    logoText?: string;
+    accentColor?: string;
+  };
+}
+
+export interface TsloConfig {
+  siteName: string;
+  repoUrl: string;
+  docsUrl: string;
+  daos: TsloDaoConfigInput[];
 }
