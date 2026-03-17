@@ -1,10 +1,20 @@
 import Link from "next/link";
 
+import { AddressDisplay } from "@/components/address-display";
 import { ProposalCard } from "@/components/proposal-card";
 import { formatAddress, formatNumber, formatPercent } from "@/lib/format";
+import { DataAdapterKind } from "@/lib/data-adapter";
 import { DaoConfig } from "@/lib/types";
 
-export function DaoOverview({ dao, apiBasePath }: { dao: DaoConfig; apiBasePath: string }) {
+export function DaoOverview({
+  dao,
+  apiBasePath,
+  adapterKind
+}: {
+  dao: DaoConfig;
+  apiBasePath: string;
+  adapterKind: DataAdapterKind;
+}) {
   return (
     <main className="shell">
       <section className="hero">
@@ -19,20 +29,24 @@ export function DaoOverview({ dao, apiBasePath }: { dao: DaoConfig; apiBasePath:
               <span className="metric-pill">{dao.governanceType}</span>
               <span className="metric-pill">{dao.governanceVersion}</span>
               <span className="metric-pill">Chain ID {dao.chainId}</span>
+              <span className="metric-pill">Adapter {adapterKind}</span>
             </div>
           </div>
           <div className="panel">
             <div className="eyebrow">Contracts</div>
             <div className="activity-list">
               <div className="activity-item">
-                <strong>Governor:</strong> {formatAddress(dao.contracts.governor)}
+                <strong>Governor</strong>
+                <AddressDisplay chainId={dao.chainId} address={dao.contracts.governor} mode="full" />
               </div>
               <div className="activity-item">
-                <strong>Token:</strong> {formatAddress(dao.contracts.token)}
+                <strong>Token</strong>
+                <AddressDisplay chainId={dao.chainId} address={dao.contracts.token} mode="full" />
               </div>
               {dao.contracts.timelock ? (
                 <div className="activity-item">
-                  <strong>Timelock:</strong> {formatAddress(dao.contracts.timelock)}
+                  <strong>Timelock</strong>
+                  <AddressDisplay chainId={dao.chainId} address={dao.contracts.timelock} mode="full" />
                 </div>
               ) : null}
             </div>
@@ -73,6 +87,11 @@ export function DaoOverview({ dao, apiBasePath }: { dao: DaoConfig; apiBasePath:
             TSLO keeps capability flags explicit so Governor variants fail safely instead of
             pretending every DAO supports identical write paths.
           </p>
+          {dao.loadStatus?.isPartial ? (
+            <p className="footnote">
+              Partial load: {dao.loadStatus.message} Estimate: {dao.loadStatus.estimate}
+            </p>
+          ) : null}
           {dao.supportNotes ? <p className="footnote">{dao.supportNotes}</p> : null}
         </div>
         <div className="panel">

@@ -28,6 +28,9 @@ export function DaoCard({ dao }: { dao: DaoConfig }) {
         <span className="metric-pill">{formatPercent(dao.stats.turnoutAverage)} avg turnout</span>
         {dao.supportTier ? <span className="metric-pill">{dao.supportTier} support</span> : null}
       </div>
+      {dao.loadStatus?.isPartial ? (
+        <p className="footnote">Partial data: {dao.loadStatus.message}</p>
+      ) : null}
     </Link>
   );
 }

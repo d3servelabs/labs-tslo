@@ -25,6 +25,11 @@ export function ProposalCard({ dao, proposal }: { dao: DaoConfig; proposal: Prop
         <span className="metric-pill">Ends {formatDate(proposal.votingEndsAt)}</span>
         <span className="metric-pill">{formatPercent(proposal.turnout)} turnout</span>
       </div>
+      {proposal.loadStatus?.isPartial ? (
+        <p className="footnote">
+          Partial data: {proposal.loadStatus.message} Estimate: {proposal.loadStatus.estimate}
+        </p>
+      ) : null}
     </Link>
   );
 }

@@ -1,5 +1,4 @@
 import tsloConfig from "@/tslo.config";
-import { getFixtureDaoBySlug, getFixtureDaos, getFixtureProposalById } from "@/lib/data";
 import { DaoConfig, TsloDaoConfigInput } from "@/lib/types";
 
 export type TsloMode = "setup" | "single" | "multi";
@@ -23,74 +22,43 @@ function normalizeDaoInput(dao: TsloDaoConfigInput, daoCount: number) {
 }
 
 function mergeConfiguredDao(dao: ReturnType<typeof normalizeDaoInput>): DaoConfig {
-  const fixture =
-    getFixtureDaoBySlug(dao.slug) ??
-    getFixtureDaos().find(
-      (candidate) =>
-        candidate.contracts.governor.toLowerCase() === dao.governorAddress.toLowerCase()
-    );
-
-  if (!fixture) {
-    return {
-      slug: dao.slug,
-      name: dao.name,
-      shortName: dao.name,
-      tagline: "Configured DAO awaiting governance data.",
-      description:
-        "TSLO found a DAO configuration but does not yet have fixture or indexed governance data for it.",
-      chainId: dao.chainId,
-      chainName: dao.chainName,
-      governanceType: "Configured Governor",
-      governanceVersion: "Pending detection",
-      brandColor: dao.branding?.accentColor ?? "#0f766e",
-      capabilityFlags: [],
-      contracts: {
-        governor: dao.governorAddress,
-        token: dao.tokenAddress,
-        timelock: dao.timelockAddress
-      },
-      links: {
-        website: dao.officialSiteUrl,
-        forum: dao.forumUrl ?? dao.officialSiteUrl,
-        docs: dao.docsUrl ?? tsloConfig.docsUrl,
-        treasury: dao.treasuryUrl ?? (dao.timelockAddress
-          ? `https://etherscan.io/address/${dao.timelockAddress}`
-          : dao.officialSiteUrl)
-      },
-      stats: {
-        totalProposals: 0,
-        activeProposals: 0,
-        delegates: 0,
-        tokenHolders: 0,
-        turnoutAverage: 0
-      },
-      delegates: [],
-      activity: [],
-      proposals: [],
-      supportNotes:
-        "This DAO is configured, but TSLO still needs a live query or indexing adapter before governance history can be shown."
-    };
-  }
-
   return {
-    ...fixture,
     slug: dao.slug,
     name: dao.name,
-    brandColor: dao.branding?.accentColor ?? fixture.brandColor,
+    shortName: dao.branding?.logoText ?? dao.name,
+    tagline: `Live governance data from ${dao.chainName}.`,
+    description: `${dao.name} governance activity is loaded directly from the configured Governor contract over public JSON-RPC.`,
+    chainId: dao.chainId,
+    chainName: dao.chainName,
+    governanceType: "Governor-compatible",
+    governanceVersion: "Live RPC",
+    brandColor: dao.branding?.accentColor ?? "#0f766e",
+    capabilityFlags: [],
     contracts: {
       governor: dao.governorAddress,
       token: dao.tokenAddress,
-      timelock: dao.timelockAddress ?? fixture.contracts.timelock
+      timelock: dao.timelockAddress
     },
     links: {
       website: dao.officialSiteUrl,
-      forum: dao.forumUrl ?? fixture.links.forum,
-      docs: dao.docsUrl ?? fixture.links.docs,
-      treasury:
-        dao.treasuryUrl ??
-        fixture.links.treasury ??
-        (dao.timelockAddress ? `https://etherscan.io/address/${dao.timelockAddress}` : dao.officialSiteUrl)
-    }
+      forum: dao.forumUrl ?? dao.officialSiteUrl,
+      docs: dao.docsUrl ?? tsloConfig.docsUrl,
+      treasury: dao.treasuryUrl ?? (dao.timelockAddress
+        ? `https://etherscan.io/address/${dao.timelockAddress}`
+        : dao.officialSiteUrl)
+    },
+    stats: {
+      totalProposals: 0,
+      activeProposals: 0,
+      delegates: 0,
+      tokenHolders: 0,
+      turnoutAverage: 0
+    },
+    delegates: [],
+    activity: [],
+    proposals: [],
+    supportNotes:
+      "TSLO loads proposal history from public JSON-RPC. Delegate and token-holder stats remain unindexed."
   };
 }
 
@@ -150,6 +118,4 @@ export function getProposalById(slug: string, proposalId: string) {
         proposal.slug.toLowerCase() === proposalId.toLowerCase()
     );
   }
-
-  return getFixtureProposalById(slug, proposalId);
 }

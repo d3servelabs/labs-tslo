@@ -1,16 +1,20 @@
 import { NextResponse } from "next/server";
 
-import { getConfiguredDaos, getSiteMode } from "@/lib/config";
+import { getSiteMode } from "@/lib/config";
+import { getDataAdapter } from "@/lib/data-adapter";
 
 export const dynamic = "force-dynamic";
 
-export function GET() {
+export async function GET() {
   if (getSiteMode() === "single") {
     return NextResponse.json({ error: "Use /api/dao in single-DAO mode." }, { status: 404 });
   }
 
+  const adapter = getDataAdapter();
+  const daos = await adapter.getDaos();
+
   return NextResponse.json({
-    daos: getConfiguredDaos().map((dao) => ({
+    daos: daos.map((dao) => ({
       slug: dao.slug,
       name: dao.name,
       shortName: dao.shortName,
@@ -19,7 +23,9 @@ export function GET() {
       governanceType: dao.governanceType,
       governanceVersion: dao.governanceVersion,
       capabilityFlags: dao.capabilityFlags,
-      stats: dao.stats
-    }))
+      stats: dao.stats,
+      loadStatus: dao.loadStatus
+    })),
+    adapter: adapter.kind
   });
 }

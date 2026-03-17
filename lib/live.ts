@@ -1,4 +1,5 @@
-import { http, createPublicClient, formatUnits, parseAbiItem } from "viem";
+import { cache } from "react";
+import { createPublicClient, formatUnits, http, parseAbiItem } from "viem";
 
 import {
   getConfiguredDaoInputs,
@@ -57,13 +58,39 @@ const defaultRpcUrls: Record<number, string> = {
   1: "https://eth-mainnet.public.blastapi.io"
 };
 
-const maxLogRangeByChain: Record<number, bigint> = {
+type ProposalLogEntry = {
+  proposalId: bigint;
+  proposer: `0x${string}`;
+  targets: readonly `0x${string}`[];
+  values: readonly bigint[];
+  signatures: readonly string[];
+  calldatas: readonly `0x${string}`[];
+  voteStart: bigint;
+  voteEnd: bigint;
+  description: string;
+  createdAt: string;
+  blockNumber: bigint;
+  latestBlock: bigint;
+  title: string;
+  summary: string;
 };
 
 function getRpcUrl(chainId: number) {
   const envKey = `TSLO_RPC_URL_${chainId}`;
   const envValue = process.env[envKey];
   return envValue ?? defaultRpcUrls[chainId];
+}
+
+function getClient(chainId: number) {
+  const rpcUrl = getRpcUrl(chainId);
+
+  if (!rpcUrl) {
+    throw new Error(`No RPC configured for chain ${chainId}.`);
+  }
+
+  return createPublicClient({
+    transport: http(rpcUrl)
+  });
 }
 
 function mapProposalState(state: number): ProposalState {
@@ -87,6 +114,18 @@ function mapProposalState(state: number): ProposalState {
     default:
       return "pending";
   }
+}
+
+function inferPartialState(latestBlock: bigint, voteStart: bigint, voteEnd: bigint): ProposalState {
+  if (latestBlock < voteStart) {
+    return "pending";
+  }
+
+  if (latestBlock <= voteEnd) {
+    return "active";
+  }
+
+  return "expired";
 }
 
 function slugify(value: string) {
@@ -129,44 +168,102 @@ function formatVoteValue(value: bigint) {
   return Number.isFinite(number) ? number : 0;
 }
 
-async function loadOnchainProposals(dao: DaoConfig, startBlock?: number) {
-  const rpcUrl = getRpcUrl(dao.chainId);
+function buildActionSummary(signature: string | undefined, target: string) {
+  return `${signature || "call()"} on ${target}`;
+}
 
-  if (!rpcUrl) {
-    throw new Error(`No RPC configured for chain ${dao.chainId}.`);
+function buildPartialProposal(entry: ProposalLogEntry): Proposal {
+  return {
+    id: entry.proposalId.toString(),
+    title: entry.title,
+    slug: `${slugify(entry.title)}-${entry.proposalId.toString().slice(-6)}`,
+    summary: entry.summary,
+    state: inferPartialState(entry.latestBlock, entry.voteStart, entry.voteEnd),
+    proposer: entry.proposer,
+    createdAt: entry.createdAt,
+    votingStartsAt: entry.createdAt,
+    votingEndsAt: entry.createdAt,
+    description: entry.description,
+    turnout: 0,
+    votes: {
+      for: 0,
+      against: 0,
+      abstain: 0,
+      quorum: 0
+    },
+    actions: entry.targets.map((target, index) => ({
+      target,
+      value: entry.values[index].toString(),
+      signature: entry.signatures[index] || "call()",
+      calldata: entry.calldatas[index],
+      summary: buildActionSummary(entry.signatures[index], target)
+    })),
+    timeline: [
+      {
+        label: "Created",
+        timestamp: entry.createdAt,
+        complete: true,
+        note: "ProposalCreated event loaded from the governor."
+      }
+    ],
+    loadStatus: {
+      isPartial: true,
+      message: "Proposal list data is loaded, but vote tallies, quorum, and final outcome are still pending a deeper RPC read.",
+      estimate:
+        "Expect about 7 additional RPC reads for a full proposal detail load: 5 contract reads and 2 block lookups."
+    }
+  };
+}
+
+function buildActivity(proposals: Proposal[]) {
+  return proposals.slice(0, 3).map((proposal) => ({
+    label:
+      proposal.state === "active"
+        ? "Voting active"
+        : proposal.state === "pending"
+          ? "Proposal scheduled"
+          : "Proposal discovered",
+    timestamp: proposal.createdAt,
+    detail: proposal.summary
+  }));
+}
+
+function buildDaoStats(baseDao: DaoConfig, proposals: Proposal[]) {
+  const turnoutValues = proposals.map((proposal) => proposal.turnout).filter((value) => value > 0);
+  const turnoutAverage =
+    turnoutValues.length > 0
+      ? turnoutValues.reduce((total, value) => total + value, 0) / turnoutValues.length
+      : 0;
+
+  return {
+    ...baseDao.stats,
+    totalProposals: proposals.length,
+    activeProposals: proposals.filter((proposal) => proposal.state === "active").length,
+    turnoutAverage
+  };
+}
+
+function buildDaoLoadEstimate(proposalCount: number) {
+  const totalDetailReads = proposalCount * 7;
+
+  if (proposalCount === 0) {
+    return "The log scan completed, but no proposals were discovered for this DAO.";
   }
 
-  const client = createPublicClient({
-    transport: http(rpcUrl)
+  return `Loaded ${proposalCount} proposals from logs. Fully hydrating every proposal would take about ${totalDetailReads} deeper RPC reads at roughly 7 reads per proposal.`;
+}
+
+async function loadProposalEntries(dao: DaoConfig, startBlock?: number) {
+  const client = getClient(dao.chainId);
+  const latestBlock = await client.getBlockNumber();
+  const proposalLogs = await client.getLogs({
+    address: dao.contracts.governor as `0x${string}`,
+    event: proposalCreatedEvent,
+    fromBlock: BigInt(startBlock ?? 0),
+    toBlock: "latest"
   });
 
-  const latestBlock = await client.getBlockNumber();
-  const fromBlock = BigInt(startBlock ?? 0);
-  const rangeSize = maxLogRangeByChain[dao.chainId];
-  const proposalLogs = [];
-
-  if (rangeSize) {
-    for (let chunkStart = fromBlock; chunkStart <= latestBlock; chunkStart += rangeSize + BigInt(1)) {
-      const chunkEnd = chunkStart + rangeSize > latestBlock ? latestBlock : chunkStart + rangeSize;
-      const logs = await client.getLogs({
-        address: dao.contracts.governor as `0x${string}`,
-        event: proposalCreatedEvent,
-        fromBlock: chunkStart,
-        toBlock: chunkEnd
-      });
-      proposalLogs.push(...logs);
-    }
-  } else {
-    const logs = await client.getLogs({
-      address: dao.contracts.governor as `0x${string}`,
-      event: proposalCreatedEvent,
-      fromBlock,
-      toBlock: "latest"
-    });
-    proposalLogs.push(...logs);
-  }
-
-  const blockCache = new Map<bigint, Promise<{ timestamp: bigint }>>();
+  const blockCache = new Map<bigint, Promise<bigint>>();
 
   function getBlockTimestamp(blockNumber: bigint) {
     const existing = blockCache.get(blockNumber);
@@ -174,14 +271,12 @@ async function loadOnchainProposals(dao: DaoConfig, startBlock?: number) {
       return existing;
     }
 
-    const next = client.getBlock({ blockNumber }).then((block) => ({
-      timestamp: block.timestamp
-    }));
+    const next = client.getBlock({ blockNumber }).then((block) => block.timestamp);
     blockCache.set(blockNumber, next);
     return next;
   }
 
-  const proposals = await Promise.all(
+  const entries = await Promise.all(
     proposalLogs.map(async (log) => {
       const args = log.args as {
         proposalId: bigint;
@@ -195,118 +290,140 @@ async function loadOnchainProposals(dao: DaoConfig, startBlock?: number) {
         description: string;
       };
 
-      const proposalId = args.proposalId.toString();
-      const title = extractTitle(args.description, proposalId);
-      const summary = extractSummary(args.description, title);
-      const [createdBlock, snapshotBlock, deadlineBlock, rawState, votesTuple, quorumValue] =
-        await Promise.all([
-          getBlockTimestamp(log.blockNumber ?? BigInt(0)),
-          client.readContract({
-            address: dao.contracts.governor as `0x${string}`,
-            abi: governorReadAbi,
-            functionName: "proposalSnapshot",
-            args: [args.proposalId]
-          }),
-          client.readContract({
-            address: dao.contracts.governor as `0x${string}`,
-            abi: governorReadAbi,
-            functionName: "proposalDeadline",
-            args: [args.proposalId]
-          }),
-          client.readContract({
-            address: dao.contracts.governor as `0x${string}`,
-            abi: governorReadAbi,
-            functionName: "state",
-            args: [args.proposalId]
-          }),
-          client.readContract({
-            address: dao.contracts.governor as `0x${string}`,
-            abi: governorReadAbi,
-            functionName: "proposalVotes",
-            args: [args.proposalId]
-          }),
-          client.readContract({
-            address: dao.contracts.governor as `0x${string}`,
-            abi: governorReadAbi,
-            functionName: "quorum",
-            args: [args.voteStart]
-          })
-        ]);
+      const createdAt = formatDate(await getBlockTimestamp(log.blockNumber ?? BigInt(0)));
+      const title = extractTitle(args.description, args.proposalId.toString());
 
-      const [againstVotes, forVotes, abstainVotes] = votesTuple;
-      const snapshotTimestamp = (await getBlockTimestamp(snapshotBlock)).timestamp;
-      const deadlineTimestamp = (await getBlockTimestamp(deadlineBlock)).timestamp;
-      const totalVotes = forVotes + againstVotes + abstainVotes;
-      const turnout = Number(quorumValue) > 0 ? Math.min((Number(totalVotes) / Number(quorumValue)) * 100, 999) : 0;
-
-      const proposal: Proposal = {
-        id: proposalId,
+      return {
+        ...args,
+        createdAt,
+        blockNumber: log.blockNumber ?? BigInt(0),
+        latestBlock,
         title,
-        slug: `${slugify(title)}-${proposalId.slice(-6)}`,
-        summary,
-        state: mapProposalState(Number(rawState)),
-        proposer: args.proposer,
-        createdAt: formatDate(createdBlock.timestamp),
-        votingStartsAt: formatDate(snapshotTimestamp),
-        votingEndsAt: formatDate(deadlineTimestamp),
-        description: args.description,
-        turnout,
-        votes: {
-          for: formatVoteValue(forVotes),
-          against: formatVoteValue(againstVotes),
-          abstain: formatVoteValue(abstainVotes),
-          quorum: formatVoteValue(quorumValue)
-        },
-        actions: args.targets.map((target, index) => ({
-          target,
-          value: args.values[index].toString(),
-          signature: args.signatures[index] || "call()",
-          calldata: args.calldatas[index],
-          summary: `${args.signatures[index] || "call()"} on ${target}`
-        })),
-        timeline: [
-          {
-            label: "Created",
-            timestamp: formatDate(createdBlock.timestamp),
-            complete: true,
-            note: "ProposalCreated event emitted by the governor."
-          },
-          {
-            label: "Voting opens",
-            timestamp: formatDate(snapshotTimestamp),
-            complete: true,
-            note: `Snapshot block ${snapshotBlock.toString()}.`
-          },
-          {
-            label: "Voting closes",
-            timestamp: formatDate(deadlineTimestamp),
-            complete: mapProposalState(Number(rawState)) !== "pending" && mapProposalState(Number(rawState)) !== "active",
-            note: `Deadline block ${deadlineBlock.toString()}.`
-          }
-        ]
-      };
-
-      return proposal;
+        summary: extractSummary(args.description, title)
+      } satisfies ProposalLogEntry;
     })
   );
 
-  return proposals.sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+  return entries.sort((left, right) => right.createdAt.localeCompare(left.createdAt));
 }
 
-function buildActivity(proposals: Proposal[]) {
-  return proposals.slice(0, 3).map((proposal) => ({
-    label:
-      proposal.state === "queued"
-        ? "Proposal queued"
-        : proposal.state === "executed"
-          ? "Proposal executed"
-          : "Proposal created",
-    timestamp: proposal.createdAt,
-    detail: proposal.summary
-  }));
+async function loadProposalDetail(dao: DaoConfig, entry: ProposalLogEntry) {
+  const client = getClient(dao.chainId);
+  const blockCache = new Map<bigint, Promise<bigint>>();
+
+  function getBlockTimestamp(blockNumber: bigint) {
+    const existing = blockCache.get(blockNumber);
+    if (existing) {
+      return existing;
+    }
+
+    const next = client.getBlock({ blockNumber }).then((block) => block.timestamp);
+    blockCache.set(blockNumber, next);
+    return next;
+  }
+
+  const [snapshotBlock, deadlineBlock, rawState, votesTuple, quorumValue] = await Promise.all([
+    client.readContract({
+      address: dao.contracts.governor as `0x${string}`,
+      abi: governorReadAbi,
+      functionName: "proposalSnapshot",
+      args: [entry.proposalId]
+    }),
+    client.readContract({
+      address: dao.contracts.governor as `0x${string}`,
+      abi: governorReadAbi,
+      functionName: "proposalDeadline",
+      args: [entry.proposalId]
+    }),
+    client.readContract({
+      address: dao.contracts.governor as `0x${string}`,
+      abi: governorReadAbi,
+      functionName: "state",
+      args: [entry.proposalId]
+    }),
+    client.readContract({
+      address: dao.contracts.governor as `0x${string}`,
+      abi: governorReadAbi,
+      functionName: "proposalVotes",
+      args: [entry.proposalId]
+    }),
+    client.readContract({
+      address: dao.contracts.governor as `0x${string}`,
+      abi: governorReadAbi,
+      functionName: "quorum",
+      args: [entry.voteStart]
+    })
+  ]);
+
+  const [againstVotes, forVotes, abstainVotes] = votesTuple;
+  const [snapshotTimestamp, deadlineTimestamp] = await Promise.all([
+    getBlockTimestamp(snapshotBlock),
+    getBlockTimestamp(deadlineBlock)
+  ]);
+  const totalVotes = forVotes + againstVotes + abstainVotes;
+  const turnout =
+    Number(quorumValue) > 0 ? Math.min((Number(totalVotes) / Number(quorumValue)) * 100, 999) : 0;
+
+  return {
+    id: entry.proposalId.toString(),
+    title: entry.title,
+    slug: `${slugify(entry.title)}-${entry.proposalId.toString().slice(-6)}`,
+    summary: entry.summary,
+    state: mapProposalState(Number(rawState)),
+    proposer: entry.proposer,
+    createdAt: entry.createdAt,
+    votingStartsAt: formatDate(snapshotTimestamp),
+    votingEndsAt: formatDate(deadlineTimestamp),
+    description: entry.description,
+    turnout,
+    votes: {
+      for: formatVoteValue(forVotes),
+      against: formatVoteValue(againstVotes),
+      abstain: formatVoteValue(abstainVotes),
+      quorum: formatVoteValue(quorumValue)
+    },
+    actions: entry.targets.map((target, index) => ({
+      target,
+      value: entry.values[index].toString(),
+      signature: entry.signatures[index] || "call()",
+      calldata: entry.calldatas[index],
+      summary: buildActionSummary(entry.signatures[index], target)
+    })),
+    timeline: [
+      {
+        label: "Created",
+        timestamp: entry.createdAt,
+        complete: true,
+        note: "ProposalCreated event emitted by the governor."
+      },
+      {
+        label: "Voting opens",
+        timestamp: formatDate(snapshotTimestamp),
+        complete: true,
+        note: `Snapshot block ${snapshotBlock.toString()}.`
+      },
+      {
+        label: "Voting closes",
+        timestamp: formatDate(deadlineTimestamp),
+        complete: mapProposalState(Number(rawState)) !== "pending" && mapProposalState(Number(rawState)) !== "active",
+        note: `Deadline block ${deadlineBlock.toString()}.`
+      }
+    ]
+  } satisfies Proposal;
 }
 
-export async function getLiveDaoBySlug(slug: string) {
+const getCachedProposalEntries = cache(async (slug: string) => {
+  const dao = getConfiguredDaoBySlug(slug);
+
+  if (!dao) {
+    return undefined;
+  }
+
+  const configuredInput = getConfiguredDaoInputs().find((entry) => entry.slug === slug);
+  return loadProposalEntries(dao, configuredInput?.startBlock);
+});
+
+export const getLiveDaoBySlug = cache(async (slug: string) => {
   const dao = getConfiguredDaoBySlug(slug);
 
   if (!dao) {
@@ -314,29 +431,47 @@ export async function getLiveDaoBySlug(slug: string) {
   }
 
   try {
-    const configuredInput = getConfiguredDaoInputs().find((entry) => entry.slug === slug);
-    const proposals = await loadOnchainProposals(dao, configuredInput?.startBlock);
+    const entries = await getCachedProposalEntries(slug);
+    const proposals = (entries ?? []).map(buildPartialProposal);
+    const estimate = buildDaoLoadEstimate(proposals.length);
 
     return {
       ...dao,
       proposals,
       activity: buildActivity(proposals),
-      stats: {
-        ...dao.stats,
-        totalProposals: proposals.length,
-        activeProposals: proposals.filter((proposal) => proposal.state === "active").length
+      stats: buildDaoStats(dao, proposals),
+      loadStatus: {
+        isPartial: true,
+        message:
+          `Proposal discovery is complete for ${proposals.length} proposals, but DAO-wide tallies and final outcomes remain partial until proposal detail reads finish.`,
+        estimate
       },
-      supportNotes: `Live proposal data loaded from ${dao.chainName} Governor contract. Delegate and token-holder stats remain placeholder until a broader adapter is added.`
-    };
+      supportNotes:
+        `TSLO loaded ${proposals.length} proposals from public JSON-RPC. Proposal details still hydrate incrementally when you open a proposal.`
+    } satisfies DaoConfig;
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown error";
 
     return {
       ...dao,
-      supportNotes: `Fell back to fixture governance data because live RPC reads failed: ${message}`
-    };
+      activity: [],
+      proposals: [],
+      stats: buildDaoStats(dao, []),
+      loadStatus: {
+        isPartial: true,
+        message: `TSLO could not finish the public RPC scan yet: ${message}`,
+        estimate:
+          "Public RPC retries can take tens of seconds. Proposal totals and list data will appear once the log scan succeeds."
+      },
+      supportNotes: `Live public JSON-RPC loading is still in progress or failed on this request: ${message}`
+    } satisfies DaoConfig;
   }
-}
+});
+
+export const getLiveConfiguredDaos = cache(async () => {
+  const daos = getConfiguredDaos();
+  return Promise.all(daos.map((dao) => getLiveDaoBySlug(dao.slug).then((liveDao) => liveDao ?? dao)));
+});
 
 export async function getLivePrimaryDao() {
   const daos = getConfiguredDaos();
@@ -348,11 +483,53 @@ export async function getLivePrimaryDao() {
   return getLiveDaoBySlug(daos[0].slug);
 }
 
-export async function getLiveProposalById(slug: string, proposalId: string) {
-  const dao = await getLiveDaoBySlug(slug);
-  return dao?.proposals.find(
-    (proposal) =>
-      proposal.id.toLowerCase() === proposalId.toLowerCase() ||
-      proposal.slug.toLowerCase() === proposalId.toLowerCase()
-  );
-}
+export const getLiveProposalById = cache(async (slug: string, proposalId: string) => {
+  const dao = getConfiguredDaoBySlug(slug);
+
+  if (!dao) {
+    return undefined;
+  }
+
+  try {
+    const entries = await getCachedProposalEntries(slug);
+    const entry = entries?.find((candidate) => {
+      const id = candidate.proposalId.toString();
+      const entrySlug = `${slugify(candidate.title)}-${id.slice(-6)}`;
+      const normalizedProposalId = proposalId.toLowerCase();
+
+      return id.toLowerCase() === normalizedProposalId || entrySlug.toLowerCase() === normalizedProposalId;
+    });
+
+    if (!entry) {
+      return undefined;
+    }
+
+    return await loadProposalDetail(dao, entry);
+  } catch (error) {
+    const entries = await getCachedProposalEntries(slug).catch(() => undefined);
+    const entry = entries?.find((candidate) => {
+      const id = candidate.proposalId.toString();
+      const entrySlug = `${slugify(candidate.title)}-${id.slice(-6)}`;
+      const normalizedProposalId = proposalId.toLowerCase();
+
+      return id.toLowerCase() === normalizedProposalId || entrySlug.toLowerCase() === normalizedProposalId;
+    });
+
+    if (!entry) {
+      return undefined;
+    }
+
+    const proposal = buildPartialProposal(entry);
+    const message = error instanceof Error ? error.message : "unknown error";
+
+    return {
+      ...proposal,
+      loadStatus: {
+        isPartial: true,
+        message: `This proposal is only partially hydrated because the detailed RPC reads did not complete: ${message}`,
+        estimate:
+          "Retrying the detail page should complete after about 7 additional RPC reads if the public endpoint responds."
+      }
+    } satisfies Proposal;
+  }
+});

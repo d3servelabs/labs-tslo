@@ -1,8 +1,8 @@
 import { notFound } from "next/navigation";
 
 import { ProposalDetail } from "@/components/proposal-detail";
-import { getDaoBySlug, getSiteMode } from "@/lib/config";
-import { getLiveDaoBySlug, getLiveProposalById } from "@/lib/live";
+import { getSiteMode } from "@/lib/config";
+import { loadDaoBySlug, loadProposalById } from "@/lib/data-adapter";
 
 export const dynamic = "force-dynamic";
 
@@ -16,8 +16,8 @@ export default async function ProposalPage({
   }
 
   const { slug, proposalId } = await params;
-  const dao = (await getLiveDaoBySlug(slug)) ?? getDaoBySlug(slug);
-  const proposal = await getLiveProposalById(slug, proposalId);
+  const dao = await loadDaoBySlug(slug);
+  const proposal = await loadProposalById(slug, proposalId);
 
   if (!dao || !proposal) {
     notFound();

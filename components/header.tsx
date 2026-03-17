@@ -1,11 +1,12 @@
 import Link from "next/link";
 
 import { WalletButton } from "@/components/wallet-button";
-import { getPrimaryDao, getSiteMode } from "@/lib/config";
+import { getSiteMode } from "@/lib/config";
+import { loadPrimaryDao } from "@/lib/data-adapter";
 
-export function Header() {
+export async function Header() {
   const mode = getSiteMode();
-  const primaryDao = mode === "setup" ? undefined : getPrimaryDao();
+  const primaryDao = mode === "setup" ? undefined : await loadPrimaryDao();
 
   return (
     <header className="nav shell">

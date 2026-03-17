@@ -7,6 +7,7 @@ TSLO is a free, open-source governance continuity app for DAOs that need a fast 
 - normalized JSON read APIs
 - sample DAO and proposal pages, including ENS DAO
 - global wallet-connect stub for future Governor write actions
+- swappable data adapters for fixture, live public JSON-RPC, and a future indexer path
 
 ## Product plan
 
@@ -60,6 +61,20 @@ npm run dev
 ```
 
 Open `http://localhost:3000`.
+
+## Data adapters
+
+TSLO now loads governance data through an adapter layer.
+
+- `live`: public JSON-RPC reads for Governor proposal history
+- `fixture`: local fixture dataset for development or fallback scenarios
+- `indexer`: placeholder adapter for a future PostgreSQL-backed indexer
+
+Select the adapter with:
+
+```bash
+TSLO_DATA_ADAPTER=live
+```
 
 ## Next implementation layer
 

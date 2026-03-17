@@ -2,14 +2,15 @@
 
 ## Summary
 
-TSLO now has a first live-read adapter for Governor-style DAOs using `viem`, but the current ENS integration is not yet production reliable. The app can attempt real onchain proposal reads and falls back to fixture data when the RPC path fails.
+TSLO now has a first live-read adapter for Governor-style DAOs using `viem`, but the current ENS integration is not yet production reliable. The app can load proposal history over public JSON-RPC and expose that through the shared `IDataAdapter` abstraction.
 
 ## What works
 
 - config-driven DAO metadata and routing
 - single-DAO mode and multi-DAO mode routing model
 - live Governor proposal read adapter wired into page and API routes
-- fallback to fixture data when live RPC reads fail
+- adapter abstraction now supports `fixture`, `live`, and a TODO `indexer` mode
+- live proposal discovery returns partial DAO data first, then hydrates proposal details more deeply on demand
 
 ## What we learned
 
@@ -48,7 +49,7 @@ Forum, docs, and treasury links should be operator-supplied in config when they 
 
 - ENS is configured as the primary single-DAO deployment
 - TSLO attempts to load live proposal data from the configured Governor
-- if live reads fail, TSLO returns fixture proposals and includes the failure reason in `supportNotes`
+- if live reads fail, TSLO returns the configured DAO with an explicit partial-load status instead of silently swapping in fixture proposals
 
 ## Recommended next steps
 

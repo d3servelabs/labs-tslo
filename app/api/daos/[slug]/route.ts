@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { getDaoBySlug, getSiteMode } from "@/lib/config";
-import { getLiveDaoBySlug } from "@/lib/live";
+import { getSiteMode } from "@/lib/config";
+import { loadDaoBySlug } from "@/lib/data-adapter";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +11,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ slug: stri
   }
 
   const { slug } = await params;
-  const dao = (await getLiveDaoBySlug(slug)) ?? getDaoBySlug(slug);
+  const dao = await loadDaoBySlug(slug);
 
   if (!dao) {
     return NextResponse.json({ error: "DAO not found" }, { status: 404 });

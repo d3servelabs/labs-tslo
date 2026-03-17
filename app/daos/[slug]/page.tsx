@@ -1,8 +1,8 @@
 import { notFound } from "next/navigation";
 
 import { DaoOverview } from "@/components/dao-overview";
-import { getDaoBySlug, getSiteMode } from "@/lib/config";
-import { getLiveDaoBySlug } from "@/lib/live";
+import { getSiteMode } from "@/lib/config";
+import { getActiveDataAdapterKind, loadDaoBySlug } from "@/lib/data-adapter";
 
 export const dynamic = "force-dynamic";
 
@@ -16,11 +16,12 @@ export default async function DaoPage({
   }
 
   const { slug } = await params;
-  const dao = (await getLiveDaoBySlug(slug)) ?? getDaoBySlug(slug);
+  const dao = await loadDaoBySlug(slug);
+  const adapterKind = getActiveDataAdapterKind();
 
   if (!dao) {
     notFound();
   }
 
-  return <DaoOverview dao={dao} apiBasePath={`/api/daos/${dao.slug}`} />;
+  return <DaoOverview dao={dao} apiBasePath={`/api/daos/${dao.slug}`} adapterKind={adapterKind} />;
 }

@@ -29,6 +29,11 @@ export function ProposalDetail({
         <div className="eyebrow">{proposal.id}</div>
         <h1 className="proposal-title">{proposal.title}</h1>
         <p className="lede">{proposal.description}</p>
+        {proposal.loadStatus?.isPartial ? (
+          <p className="footnote">
+            Partial data: {proposal.loadStatus.message} Estimate: {proposal.loadStatus.estimate}
+          </p>
+        ) : null}
         <div className="pill-row">
           <span className="metric-pill">Proposer {formatAddress(proposal.proposer)}</span>
           <span className="metric-pill">Created {formatDate(proposal.createdAt)}</span>

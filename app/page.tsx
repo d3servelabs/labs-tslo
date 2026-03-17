@@ -4,28 +4,29 @@ import { DaoDirectory } from "@/components/dao-directory";
 import { DaoOverview } from "@/components/dao-overview";
 import { SetupGuide } from "@/components/setup-guide";
 import { WalletCard } from "@/components/wallet-card";
-import { getConfiguredDaos, getPrimaryDao, getSiteMode, getTsloConfig } from "@/lib/config";
+import { getSiteMode, getTsloConfig } from "@/lib/config";
+import { getActiveDataAdapterKind } from "@/lib/data-adapter";
 import { ethereumDaoTargets } from "@/lib/data";
-import { getLivePrimaryDao } from "@/lib/live";
+import { loadDaos, loadPrimaryDao } from "@/lib/data-adapter";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   const mode = getSiteMode();
-  const daos = getConfiguredDaos();
-  const primaryDao = getPrimaryDao();
   const config = getTsloConfig();
 
   if (mode === "setup") {
     return <SetupGuide />;
   }
 
-  if (mode === "single" && primaryDao) {
-    const livePrimaryDao = (await getLivePrimaryDao()) ?? primaryDao;
+  const adapterKind = getActiveDataAdapterKind();
+  const daos = await loadDaos();
+  const primaryDao = await loadPrimaryDao();
 
+  if (mode === "single" && primaryDao) {
     return (
       <>
-        <DaoOverview dao={{ ...livePrimaryDao, slug: "" }} apiBasePath="/api/dao" />
+        <DaoOverview dao={{ ...primaryDao, slug: "" }} apiBasePath="/api/dao" adapterKind={adapterKind} />
         <section className="shell section grid-2">
           <div className="panel">
             <div className="eyebrow">Deployment Mode</div>
@@ -35,9 +36,10 @@ export default async function HomePage() {
               proposal routes omit the DAO slug and branding follows the configured protocol.
             </p>
             <div className="pill-row">
-              <span className="metric-pill">{livePrimaryDao.name}</span>
-              <span className="metric-pill">{livePrimaryDao.chainName}</span>
+              <span className="metric-pill">{primaryDao.name}</span>
+              <span className="metric-pill">{primaryDao.chainName}</span>
               <span className="metric-pill">{config.siteName}</span>
+              <span className="metric-pill">Adapter {adapterKind}</span>
             </div>
           </div>
           <WalletCard />

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { getProposalById, getSiteMode } from "@/lib/config";
-import { getLiveProposalById } from "@/lib/live";
+import { getSiteMode } from "@/lib/config";
+import { loadProposalById } from "@/lib/data-adapter";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +17,7 @@ export async function GET(
   }
 
   const { slug, proposalId } = await params;
-  const proposal = (await getLiveProposalById(slug, proposalId)) ?? getProposalById(slug, proposalId);
+  const proposal = await loadProposalById(slug, proposalId);
 
   if (!proposal) {
     return NextResponse.json({ error: "Proposal not found" }, { status: 404 });

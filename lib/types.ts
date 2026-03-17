@@ -38,6 +38,12 @@ export interface TimelineStep {
   note: string;
 }
 
+export interface LoadStatus {
+  isPartial: boolean;
+  message: string;
+  estimate: string;
+}
+
 export interface Proposal {
   id: string;
   title: string;
@@ -54,6 +60,7 @@ export interface Proposal {
   votes: VoteTally;
   actions: ActionCall[];
   timeline: TimelineStep[];
+  loadStatus?: LoadStatus;
 }
 
 export interface DaoStats {
@@ -106,6 +113,7 @@ export interface DaoConfig {
     detail: string;
   }>;
   proposals: Proposal[];
+  loadStatus?: LoadStatus;
 }
 
 export interface TsloDaoConfigInput {
