@@ -167,19 +167,27 @@ export function DaoOverview({
               {visibleProposals.map((proposal) => (
                 <ProposalCard key={proposal.id} dao={dao} proposal={proposal} />
               ))}
-              {isSyncing && (
+              {isSyncing && !hasMore && (
                 <ProposalCardSkeleton />
               )}
-              {!isSyncing && hasMore && (
-                <div style={{ display: "flex", justifyContent: "center", marginTop: "1rem" }}>
+              <div style={{ display: "flex", justifyContent: "center", gap: "12px", marginTop: "1rem" }}>
+                {hasMore && (
                   <button
                     className="button-secondary"
                     onClick={() => setVisibleCount((prev) => prev + 10)}
                   >
                     Show more
                   </button>
-                </div>
-              )}
+                )}
+                {visibleCount > 10 && (
+                  <button
+                    className="button-secondary"
+                    onClick={() => setVisibleCount(10)}
+                  >
+                    Show less
+                  </button>
+                )}
+              </div>
             </>
           ) : isSyncing ? (
             <ProposalCardSkeleton />
