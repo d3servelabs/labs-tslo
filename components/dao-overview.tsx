@@ -24,7 +24,12 @@ export function DaoOverview({
   const initialStartBlock = dao.loadStatus?.startBlock ?? 0;
   const { proposals, isSyncing, progress } = useDaoSync(dao, initialStartBlock);
   
+  const [visibleCount, setVisibleCount] = useState(10);
+  
   const displayProposals = proposals.length > 0 ? proposals : dao.proposals;
+  const visibleProposals = displayProposals.slice(0, visibleCount);
+  const hasMore = visibleCount < displayProposals.length;
+
   return (
     <main className="shell">
       <section className="hero">
@@ -179,7 +184,21 @@ export function DaoOverview({
         </div>
         <div className="proposal-list">
           {displayProposals.length > 0 ? (
-            displayProposals.map((proposal) => <ProposalCard key={proposal.id} dao={dao} proposal={proposal} />)
+            <>
+              {visibleProposals.map((proposal) => (
+                <ProposalCard key={proposal.id} dao={dao} proposal={proposal} />
+              ))}
+              {hasMore && (
+                <div style={{ display: "flex", justifyContent: "center", marginTop: "1rem" }}>
+                  <button
+                    className="button-secondary"
+                    onClick={() => setVisibleCount((prev) => prev + 10)}
+                  >
+                    Show more
+                  </button>
+                </div>
+              )}
+            </>
           ) : (
             <div className="empty-state">
               This DAO is configured, but there is no proposal history loaded yet.
