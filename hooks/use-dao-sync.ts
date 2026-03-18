@@ -71,6 +71,82 @@ function calculateScannedBlocks(ranges: [bigint, bigint][], start: bigint, end: 
   return scanned;
 }
 
+async function buildProposalsList(proposalLogs: any[], voteLogs: any[], latestBlock: bigint, client: any) {
+  const blockCache = new Map<string, Promise<bigint>>();
+  function getBlockTimestamp(blockNumberStr: string) {
+    const existing = blockCache.get(blockNumberStr);
+    if (existing) return existing;
+    const next = client.getBlock({ blockNumber: BigInt(blockNumberStr) }).then((block: any) => block.timestamp);
+    blockCache.set(blockNumberStr, next);
+    return next;
+  }
+
+  const voteStatsMap = new Map();
+  for (const log of voteLogs) {
+    const pid = log.args.proposalId;
+    if (!voteStatsMap.has(pid)) {
+      voteStatsMap.set(pid, { for: BigInt(0), against: BigInt(0), abstain: BigInt(0), voters: new Set(), voteList: [] });
+    }
+    const bucket = voteStatsMap.get(pid);
+    const support = Number(log.args.support);
+    const weight = BigInt(log.args.weight);
+    if (support === 0) bucket.against += weight;
+    else if (support === 1) bucket.for += weight;
+    else bucket.abstain += weight;
+    bucket.voters.add(log.args.voter);
+    
+    bucket.voteList.push({
+      voter: log.args.voter,
+      support: support === 0 ? "against" : support === 1 ? "for" : "abstain",
+      weight: formatVoteValue(weight),
+      timestamp: "" // We don't need accurate timestamps for individual votes (not shown in UI), avoiding 10,000+ RPC calls
+    });
+  }
+
+  // Build proposals sequentially to avoid hitting RPC rate limits with concurrent getBlock calls
+  const newProposals = [];
+  for (const log of proposalLogs) {
+    const args = log.args;
+    const createdAt = formatDate(await getBlockTimestamp(log.blockNumber));
+    const title = extractTitle(args.description, args.proposalId);
+    const stats = voteStatsMap.get(args.proposalId);
+    const forVotes = stats ? formatVoteValue(stats.for) : 0;
+    const againstVotes = stats ? formatVoteValue(stats.against) : 0;
+    const abstainVotes = stats ? formatVoteValue(stats.abstain) : 0;
+    const totalVotes = forVotes + againstVotes + abstainVotes;
+
+    newProposals.push({
+      id: args.proposalId,
+      title,
+      slug: `${slugify(title)}-${args.proposalId.slice(-6)}`,
+      summary: extractSummary(args.description, title),
+      state: inferPartialState(latestBlock, BigInt(args.voteStart), BigInt(args.voteEnd)),
+      proposer: args.proposer,
+      createdAt,
+      votingStartsAt: createdAt,
+      votingEndsAt: createdAt,
+      description: args.description,
+      turnout: 0,
+      votes: { for: forVotes, against: againstVotes, abstain: abstainVotes, quorum: 0 },
+      totalVotes,
+      voterCount: stats ? stats.voters.size : 0,
+      actions: args.targets.map((target: string, index: number) => ({
+        target,
+        value: args.values[index],
+        signature: args.signatures[index] || "call()",
+        calldata: args.calldatas[index],
+        summary: buildActionSummary(args.signatures[index], target)
+      })),
+      timeline: [{ label: "Created", timestamp: createdAt, complete: true, note: "ProposalCreated event loaded from the governor.", icon: "plus", actor: args.proposer }],
+      voters: stats ? stats.voteList : [],
+      loadStatus: { isPartial: false, message: "Client synced.", estimate: "" }
+    } as Proposal);
+  }
+
+  newProposals.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  return newProposals;
+}
+
 export function useDaoSync(dao: DaoConfig, initialStartBlock: number) {
   const [proposals, setProposals] = useState<Proposal[]>(dao.proposals || []);
   const [isSyncing, setIsSyncing] = useState(true);
@@ -97,6 +173,12 @@ export function useDaoSync(dao: DaoConfig, initialStartBlock: number) {
         
         const latestBlock = await client.getBlockNumber();
         const targetStartBlock = BigInt(initialStartBlock);
+
+        // **INITIAL UI UPDATE**: Immediately show proposals from cache before syncing completes
+        if (cachedData.proposalLogs.length > 0 && mounted) {
+           const cachedProposals = await buildProposalsList(cachedData.proposalLogs, cachedData.voteLogs, latestBlock, client);
+           if (mounted) setProposals(cachedProposals);
+        }
         
         let mergedRanges: [bigint, bigint][] = cachedData.syncedRanges.map((r: [string, string]) => [BigInt(r[0]), BigInt(r[1])]);
         
@@ -229,88 +311,28 @@ export function useDaoSync(dao: DaoConfig, initialStartBlock: number) {
             
             // Do NOT advance cursor; the loop will retry the same block range
           }
+
+          // **INCREMENTAL UI UPDATE**: Update the proposals state incrementally during the sync loop
+          // instead of waiting until the entire blockchain is scanned.
+          if (cachedData.proposalLogs.length > 0 && mounted) {
+             const currentProposals = buildProposalsList(cachedData.proposalLogs, cachedData.voteLogs, latestBlock, client);
+             // We don't await the whole build to avoid completely blocking the sync loop, 
+             // but we fire off an update so it populates as blocks are fetched.
+             currentProposals.then(newProposals => {
+               if (mounted) setProposals(newProposals);
+             });
+          }
         }
 
         if (!mounted) return;
 
-        // Build proposals
-        const blockCache = new Map<string, Promise<bigint>>();
-        function getBlockTimestamp(blockNumberStr: string) {
-          const existing = blockCache.get(blockNumberStr);
-          if (existing) return existing;
-          const next = client.getBlock({ blockNumber: BigInt(blockNumberStr) }).then((block) => block.timestamp);
-          blockCache.set(blockNumberStr, next);
-          return next;
-        }
-
-        const voteStatsMap = new Map();
-        for (const log of cachedData.voteLogs) {
-          const pid = log.args.proposalId;
-          if (!voteStatsMap.has(pid)) {
-            voteStatsMap.set(pid, { for: BigInt(0), against: BigInt(0), abstain: BigInt(0), voters: new Set(), voteList: [] });
-          }
-          const bucket = voteStatsMap.get(pid);
-          const support = Number(log.args.support);
-          const weight = BigInt(log.args.weight);
-          if (support === 0) bucket.against += weight;
-          else if (support === 1) bucket.for += weight;
-          else bucket.abstain += weight;
-          bucket.voters.add(log.args.voter);
-          
-          bucket.voteList.push({
-            voter: log.args.voter,
-            support: support === 0 ? "against" : support === 1 ? "for" : "abstain",
-            weight: formatVoteValue(weight),
-            timestamp: "" // We don't need accurate timestamps for individual votes (not shown in UI), avoiding 10,000+ RPC calls
-          });
-        }
-
-        // Build proposals sequentially to avoid hitting RPC rate limits with concurrent getBlock calls
-        const newProposals = [];
-        for (const log of cachedData.proposalLogs) {
-          const args = log.args;
-          const createdAt = formatDate(await getBlockTimestamp(log.blockNumber));
-          const title = extractTitle(args.description, args.proposalId);
-          const stats = voteStatsMap.get(args.proposalId);
-          const forVotes = stats ? formatVoteValue(stats.for) : 0;
-          const againstVotes = stats ? formatVoteValue(stats.against) : 0;
-          const abstainVotes = stats ? formatVoteValue(stats.abstain) : 0;
-          const totalVotes = forVotes + againstVotes + abstainVotes;
-
-          newProposals.push({
-            id: args.proposalId,
-            title,
-            slug: `${slugify(title)}-${args.proposalId.slice(-6)}`,
-            summary: extractSummary(args.description, title),
-            state: inferPartialState(latestBlock, BigInt(args.voteStart), BigInt(args.voteEnd)),
-            proposer: args.proposer,
-            createdAt,
-            votingStartsAt: createdAt,
-            votingEndsAt: createdAt,
-            description: args.description,
-            turnout: 0,
-            votes: { for: forVotes, against: againstVotes, abstain: abstainVotes, quorum: 0 },
-            totalVotes,
-            voterCount: stats ? stats.voters.size : 0,
-            actions: args.targets.map((target: string, index: number) => ({
-              target,
-              value: args.values[index],
-              signature: args.signatures[index] || "call()",
-              calldata: args.calldatas[index],
-              summary: buildActionSummary(args.signatures[index], target)
-            })),
-            timeline: [{ label: "Created", timestamp: createdAt, complete: true, note: "ProposalCreated event loaded from the governor.", icon: "plus", actor: args.proposer }],
-            voters: stats ? stats.voteList : [],
-            loadStatus: { isPartial: false, message: "Client synced.", estimate: "" }
-          } as Proposal);
-        }
-
-        newProposals.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+        // Build proposals at the very end to ensure it's fully synced
+        const finalProposals = await buildProposalsList(cachedData.proposalLogs, cachedData.voteLogs, latestBlock, client);
         
         if (!mounted) return;
         const finalScanned = calculateScannedBlocks(mergedRanges, targetStartBlock, latestBlock);
         setProgress(p => ({ ...p, scanned: Number(finalScanned) }));
-        setProposals(newProposals);
+        setProposals(finalProposals);
       } catch (err) {
         console.error("Failed to sync dao logs", err);
       } finally {
