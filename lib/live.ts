@@ -335,9 +335,9 @@ function buildDaoStats(baseDao: DaoConfig, proposals: Proposal[]) {
 
 function formatBlockRange(startBlock: number, latestBlock: number) {
   const total = Math.max(0, latestBlock - startBlock);
-  const scanned = total;
+  const scanned = 0; // Let client component handle scanned value based on indexeddb cache
 
-  return { scanned, total, progress: 100 };
+  return { scanned, total, progress: 0 };
 }
 
 function buildDaoLoadEstimate(proposalCount: number, startBlock: number, latestBlock: number) {
