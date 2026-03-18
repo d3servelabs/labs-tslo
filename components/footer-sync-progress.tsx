@@ -16,7 +16,7 @@ function getClient(chainId: number) {
 }
 
 export function FooterSyncProgress({ primaryDao }: { primaryDao?: DaoConfig }) {
-  const [progress, setProgress] = useState<{ startBlock: number; latestBlock: number; scannedBlocks: number; totalBlocks: number } | null>(null);
+  const [progress, setProgress] = useState<{ startBlock: number; latestBlock: number; scannedBlocks: number; totalBlocks: number; syncedRanges: [number, number][] } | null>(null);
 
   useEffect(() => {
     if (!primaryDao) return;
@@ -35,6 +35,7 @@ export function FooterSyncProgress({ primaryDao }: { primaryDao?: DaoConfig }) {
         
         let lastSyncedBlock = startBlock;
         let scannedBlocks = 0;
+        let syncedRangesNum: [number, number][] = [];
         
         if (cachedData) {
           let syncedRanges: [bigint, bigint][] = [];
@@ -55,6 +56,7 @@ export function FooterSyncProgress({ primaryDao }: { primaryDao?: DaoConfig }) {
             const overlapEnd = r[1] < targetEndBlock ? r[1] : targetEndBlock;
             if (overlapStart <= overlapEnd) {
               scanned += (overlapEnd - overlapStart + BigInt(1));
+              syncedRangesNum.push([Number(overlapStart), Number(overlapEnd)]);
             }
           }
           scannedBlocks = Number(scanned);
@@ -67,7 +69,8 @@ export function FooterSyncProgress({ primaryDao }: { primaryDao?: DaoConfig }) {
             startBlock,
             latestBlock,
             scannedBlocks,
-            totalBlocks
+            totalBlocks,
+            syncedRanges: syncedRangesNum
           });
         }
       } catch (err) {
@@ -93,6 +96,7 @@ export function FooterSyncProgress({ primaryDao }: { primaryDao?: DaoConfig }) {
   const latestBlock = progress?.latestBlock ?? loadStatus?.latestBlock;
   const scannedBlocks = progress?.scannedBlocks ?? loadStatus?.scannedBlocks;
   const totalBlocks = progress?.totalBlocks ?? loadStatus?.totalBlocks;
+  const syncedRanges = progress?.syncedRanges ?? [];
 
   const hasSyncInfo =
     startBlock !== undefined &&
@@ -136,11 +140,32 @@ export function FooterSyncProgress({ primaryDao }: { primaryDao?: DaoConfig }) {
           {percentage}% ({scannedBlocks.toLocaleString()} / {totalBlocks.toLocaleString()} blocks)
         </span>
       </div>
-      <div className="progress">
-        <span
-          className="vote-for"
-          style={{ width: `${percentage}%`, transition: "width 0.3s ease" }}
-        ></span>
+      <div className="progress" style={{ position: "relative", backgroundColor: "var(--border)", overflow: "hidden" }}>
+        {totalBlocks > 0 ? (
+          syncedRanges.map(([rangeStart, rangeEnd], idx) => {
+            const leftPerc = Math.max(0, ((rangeStart - startBlock) / totalBlocks) * 100);
+            const widthPerc = Math.min(100 - leftPerc, ((rangeEnd - rangeStart + 1) / totalBlocks) * 100);
+            return (
+              <span
+                key={idx}
+                className="vote-for"
+                style={{
+                  position: "absolute",
+                  left: `${leftPerc}%`,
+                  width: `${widthPerc}%`,
+                  height: "100%",
+                  transition: "all 0.3s ease",
+                  borderRadius: "0px"
+                }}
+              ></span>
+            );
+          })
+        ) : (
+          <span
+            className="vote-for"
+            style={{ width: `100%`, height: "100%", borderRadius: "0px" }}
+          ></span>
+        )}
       </div>
     </div>
   );
