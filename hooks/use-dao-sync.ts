@@ -1,20 +1,20 @@
 import { useState, useEffect } from "react";
 import { createPublicClient, http, parseAbiItem, formatUnits } from "viem";
-import { get as idbGet, set as idbSet } from "idb-keyval";
+import { get as idbGet, set as idbSet, clear as idbClear } from "idb-keyval";
 import { DaoConfig, Proposal, ProposalState } from "@/lib/types";
 import { extractAbstract } from "@/lib/format";
 
-// Wrapper for idb-keyval that falls back to localStorage if IndexedDB is completely broken (e.g. Arc/Chrome corruption bug)
+// Wrapper for idb-keyval that attempts to clear and reset IndexedDB if it gets corrupted
 async function get(key: string): Promise<any> {
   try {
     return await idbGet(key);
   } catch (err) {
-    console.warn("IndexedDB get failed, falling back to localStorage", err);
+    console.warn("IndexedDB get failed, attempting to clear and reset...", err);
     try {
-      const val = localStorage.getItem(key);
-      return val ? JSON.parse(val) : undefined;
-    } catch (lsErr) {
-      console.warn("localStorage get also failed", lsErr);
+      await idbClear();
+      return undefined;
+    } catch (clearErr) {
+      console.error("IndexedDB is completely locked/broken, falling back to memory.", clearErr);
       return undefined;
     }
   }
@@ -24,11 +24,12 @@ async function set(key: string, val: any): Promise<void> {
   try {
     await idbSet(key, val);
   } catch (err) {
-    console.warn("IndexedDB set failed, falling back to localStorage", err);
+    console.warn("IndexedDB set failed, attempting to clear and reset...", err);
     try {
-      localStorage.setItem(key, JSON.stringify(val));
-    } catch (lsErr) {
-      console.warn("localStorage set also failed, likely quota exceeded", lsErr);
+      await idbClear();
+      await idbSet(key, val);
+    } catch (clearErr) {
+      console.error("IndexedDB is completely locked/broken, unable to persist cache.", clearErr);
     }
   }
 }

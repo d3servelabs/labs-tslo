@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { DaoConfig } from "@/lib/types";
-import { get as idbGet } from "idb-keyval";
+import { get as idbGet, clear as idbClear } from "idb-keyval";
 import { createPublicClient, http } from "viem";
 
 async function get(key: string): Promise<any> {
@@ -10,9 +10,9 @@ async function get(key: string): Promise<any> {
     return await idbGet(key);
   } catch (err) {
     try {
-      const val = localStorage.getItem(key);
-      return val ? JSON.parse(val) : undefined;
-    } catch (lsErr) {
+      await idbClear();
+      return undefined;
+    } catch (clearErr) {
       return undefined;
     }
   }
