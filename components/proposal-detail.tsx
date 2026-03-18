@@ -1,8 +1,9 @@
 import type { Route } from "next";
 import Link from "next/link";
 
+import { AddressDisplay } from "@/components/address-display";
 import { ProposalVoteBars } from "@/components/proposal-vote-bars";
-import { formatAddress, formatDate, formatPercent } from "@/lib/format";
+import { formatDate, formatPercent } from "@/lib/format";
 import { DaoConfig, Proposal } from "@/lib/types";
 
 export function ProposalDetail({
@@ -28,17 +29,33 @@ export function ProposalDetail({
       <section className="section">
         <div className="eyebrow">{proposal.id}</div>
         <h1 className="proposal-title">{proposal.title}</h1>
-        <p className="lede">{proposal.description}</p>
+        <p className="lede">{proposal.summary}</p>
         {proposal.loadStatus?.isPartial ? (
           <p className="footnote">
             Partial data: {proposal.loadStatus.message} Estimate: {proposal.loadStatus.estimate}
           </p>
         ) : null}
         <div className="pill-row">
-          <span className="metric-pill">Proposer {formatAddress(proposal.proposer)}</span>
           <span className="metric-pill">Created {formatDate(proposal.createdAt)}</span>
           <span className="metric-pill">Turnout {formatPercent(proposal.turnout)}</span>
         </div>
+        <div className="proposal-meta-grid">
+          <div className="proposal-meta-panel">
+            <div className="eyebrow">Proposer</div>
+            <AddressDisplay chainId={dao.chainId} address={proposal.proposer} mode="short" />
+          </div>
+          <div className="proposal-meta-panel">
+            <div className="eyebrow">Voting Window</div>
+            <div className="proposal-meta-copy">
+              {formatDate(proposal.votingStartsAt)} to {formatDate(proposal.votingEndsAt)}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="section panel">
+        <div className="eyebrow">Description</div>
+        <pre className="proposal-description">{proposal.description}</pre>
       </section>
 
       <section className="section proposal-grid">
@@ -73,9 +90,10 @@ export function ProposalDetail({
             <div key={`${action.target}-${index}`} className="call-data-item">
               <div className="row-between">
                 <strong>{action.signature}</strong>
-                <span>{formatAddress(action.target)}</span>
+                <span className="proposal-action-index">Action {index + 1}</span>
               </div>
               <p className="muted">{action.summary}</p>
+              <AddressDisplay chainId={dao.chainId} address={action.target} mode="short" />
               <pre className="code-block">{action.calldata}</pre>
             </div>
           ))}

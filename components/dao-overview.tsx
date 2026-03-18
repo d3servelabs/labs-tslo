@@ -128,7 +128,11 @@ export function DaoOverview({
                 </div>
               ))
             ) : (
-              <div className="empty-state">Delegate data will appear here once TSLO has a live adapter.</div>
+              <div className="empty-state">
+                {adapterKind === "live"
+                  ? "Delegate data is not loaded yet. TSLO is currently reading proposal history first; delegate data can be added in a later live pass."
+                  : "Delegate data is not available from the current adapter yet."}
+              </div>
             )}
           </div>
         </div>

@@ -134,9 +134,13 @@ export function AddressDisplay({
   const explorers = getExplorerConfigs(chainId, address);
 
   async function handleCopy() {
-    await navigator.clipboard.writeText(address);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1600);
+    try {
+      await navigator.clipboard.writeText(address);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1600);
+    } catch {
+      setCopied(false);
+    }
   }
 
   return (
@@ -144,7 +148,18 @@ export function AddressDisplay({
       <div className="address-display-main">
         <JazzIcon address={address} />
         <div className="address-display-content">
-          <code className="address-display-value">{displayValue}</code>
+          <div className="address-display-row">
+            <code className="address-display-value" title={address}>
+              {displayValue}
+            </code>
+            <button
+              type="button"
+              className="button-secondary address-copy-button"
+              onClick={handleCopy}
+            >
+              {copied ? "Copied" : "Copy"}
+            </button>
+          </div>
           {explorers.length > 0 ? (
             <div className="address-display-links">
               {explorers.map((explorer) => (
@@ -167,9 +182,6 @@ export function AddressDisplay({
           )}
         </div>
       </div>
-      <button type="button" className="button-secondary address-copy-button" onClick={handleCopy}>
-        {copied ? "Copied" : "Copy"}
-      </button>
     </div>
   );
 }
