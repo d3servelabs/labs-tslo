@@ -99,23 +99,27 @@ export function useDaoSync(dao: DaoConfig, initialStartBlock: number) {
             ]);
             
             const pLogsMapped = pLogs.map(log => ({
-              ...log,
               args: {
-                ...log.args,
                 proposalId: log.args.proposalId?.toString(),
+                proposer: log.args.proposer,
+                targets: log.args.targets,
                 values: log.args.values?.map((v: bigint) => v.toString()),
+                signatures: log.args.signatures,
+                calldatas: log.args.calldatas,
                 voteStart: log.args.voteStart?.toString(),
-                voteEnd: log.args.voteEnd?.toString()
+                voteEnd: log.args.voteEnd?.toString(),
+                description: log.args.description
               },
               blockNumber: log.blockNumber?.toString()
             }));
 
             const vLogsMapped = vLogs.map(log => ({
-              ...log,
               args: {
-                ...log.args,
                 proposalId: log.args.proposalId?.toString(),
-                weight: log.args.weight?.toString()
+                voter: log.args.voter,
+                support: log.args.support,
+                weight: log.args.weight?.toString(),
+                reason: log.args.reason
               },
               blockNumber: log.blockNumber?.toString()
             }));
