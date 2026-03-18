@@ -79,13 +79,16 @@ export function FooterSyncProgress({ primaryDao }: { primaryDao?: DaoConfig }) {
         const totalBlocks = Math.max(0, latestBlock - startBlock + 1);
 
         if (mounted) {
-          setProgress({
+          const progressUpdate = {
             startBlock,
             latestBlock,
             scannedBlocks,
             totalBlocks,
             syncedRanges: syncedRangesNum
-          });
+          };
+          setProgress(progressUpdate);
+          // Only fire event from poll if it's not being actively driven by useDaoSync hook
+          window.dispatchEvent(new CustomEvent('tslo_sync_progress', { detail: progressUpdate }));
         }
       } catch (err) {
         // ignore
@@ -98,9 +101,19 @@ export function FooterSyncProgress({ primaryDao }: { primaryDao?: DaoConfig }) {
 
     pollProgress();
 
+    // Since polling is only every 5s, let's also listen to custom events emitted by the hook 
+    // to get instant, smooth progress bar updates during fast syncing
+    const handleSyncProgress = (e: any) => {
+      if (mounted && e.detail) {
+        setProgress(e.detail);
+      }
+    };
+    window.addEventListener("tslo_sync_progress", handleSyncProgress);
+
     return () => {
       mounted = false;
       clearTimeout(timeoutId);
+      window.removeEventListener("tslo_sync_progress", handleSyncProgress);
     };
   }, [primaryDao]);
 

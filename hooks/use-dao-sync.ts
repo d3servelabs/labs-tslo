@@ -214,12 +214,23 @@ export function useDaoSync(dao: DaoConfig, initialStartBlock: number) {
         
         const effectiveScanned = calculateScannedBlocks(mergedRanges, targetStartBlock, latestBlock);
         
+        const initialProgress = { 
+          latestBlock: Number(latestBlock), 
+          totalBlocks: Number(latestBlock - targetStartBlock + BigInt(1)),
+          scannedBlocks: Number(effectiveScanned),
+          startBlock: initialStartBlock,
+          syncedRanges: mergedRanges.map(r => [Number(r[0]), Number(r[1])])
+        };
+
         setProgress(p => ({ 
           ...p, 
-          latestBlock: Number(latestBlock), 
-          total: Number(latestBlock - targetStartBlock + BigInt(1)),
-          scanned: Number(effectiveScanned)
+          latestBlock: initialProgress.latestBlock,
+          total: initialProgress.totalBlocks,
+          scanned: initialProgress.scannedBlocks
         }));
+        
+        // Broadcast initial cache state to the footer immediately
+        if (mounted) window.dispatchEvent(new CustomEvent('tslo_sync_progress', { detail: initialProgress }));
 
         let newProposalLogs: any[] = [];
         let newVoteLogs: any[] = [];
@@ -322,7 +333,17 @@ export function useDaoSync(dao: DaoConfig, initialStartBlock: number) {
             
             if (mounted) {
               const currentScanned = calculateScannedBlocks(mergedRanges, targetStartBlock, latestBlock);
+              
+              const progressUpdate = {
+                startBlock: Number(targetStartBlock),
+                latestBlock: Number(latestBlock),
+                scannedBlocks: Number(currentScanned),
+                totalBlocks: Number(latestBlock - targetStartBlock + BigInt(1)),
+                syncedRanges: mergedRanges.map(r => [Number(r[0]), Number(r[1])])
+              };
+              
               setProgress(p => ({ ...p, scanned: Number(currentScanned) }));
+              window.dispatchEvent(new CustomEvent('tslo_sync_progress', { detail: progressUpdate }));
             }
 
             cursor = fromBlock - BigInt(1);
@@ -369,6 +390,16 @@ export function useDaoSync(dao: DaoConfig, initialStartBlock: number) {
         const finalScanned = calculateScannedBlocks(mergedRanges, targetStartBlock, latestBlock);
         setProgress(p => ({ ...p, scanned: Number(finalScanned) }));
         setProposals(finalProposals);
+        
+        window.dispatchEvent(new CustomEvent('tslo_sync_progress', { 
+           detail: {
+             startBlock: initialStartBlock,
+             latestBlock: Number(latestBlock),
+             scannedBlocks: Number(finalScanned),
+             totalBlocks: Number(latestBlock - targetStartBlock + BigInt(1)),
+             syncedRanges: mergedRanges.map(r => [Number(r[0]), Number(r[1])])
+           } 
+        }));
       } catch (err) {
         console.error("Failed to sync dao logs", err);
       } finally {
