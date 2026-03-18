@@ -69,51 +69,67 @@ export function useDaoSync(dao: DaoConfig, initialStartBlock: number) {
         let newVoteLogs: any[] = [];
 
         if (effectiveFromBlock < latestBlock) {
-          // Fetch new logs
-          const [pLogs, vLogs] = await Promise.all([
-            client.getLogs({
-              address: dao.contracts.governor as `0x${string}`,
-              event: proposalCreatedEvent,
-              fromBlock: effectiveFromBlock,
-              toBlock: "latest"
-            }),
-            client.getLogs({
-              address: dao.contracts.governor as `0x${string}`,
-              event: voteCastEvent,
-              fromBlock: effectiveFromBlock,
-              toBlock: "latest"
-            })
-          ]);
-          
-          newProposalLogs = pLogs.map(log => ({
-            ...log,
-            args: {
-              ...log.args,
-              proposalId: log.args.proposalId?.toString(),
-              values: log.args.values?.map((v: bigint) => v.toString()),
-              voteStart: log.args.voteStart?.toString(),
-              voteEnd: log.args.voteEnd?.toString()
-            },
-            blockNumber: log.blockNumber?.toString()
-          }));
+          let currentFromBlock = effectiveFromBlock;
+          // Most free RPCs allow 100k or 50k blocks; using 49999 to be safe and fast
+          const BATCH_SIZE = BigInt(49999);
 
-          newVoteLogs = vLogs.map(log => ({
-            ...log,
-            args: {
-              ...log.args,
-              proposalId: log.args.proposalId?.toString(),
-              weight: log.args.weight?.toString()
-            },
-            blockNumber: log.blockNumber?.toString()
-          }));
+          while (currentFromBlock <= latestBlock && mounted) {
+            const currentToBlock = currentFromBlock + BATCH_SIZE > latestBlock ? latestBlock : currentFromBlock + BATCH_SIZE;
 
-          cachedData = {
-            lastBlock: latestBlock.toString(),
-            proposalLogs: [...cachedData.proposalLogs, ...newProposalLogs],
-            voteLogs: [...cachedData.voteLogs, ...newVoteLogs]
-          };
+            const [pLogs, vLogs] = await Promise.all([
+              client.getLogs({
+                address: dao.contracts.governor as `0x${string}`,
+                event: proposalCreatedEvent,
+                fromBlock: currentFromBlock,
+                toBlock: currentToBlock
+              }),
+              client.getLogs({
+                address: dao.contracts.governor as `0x${string}`,
+                event: voteCastEvent,
+                fromBlock: currentFromBlock,
+                toBlock: currentToBlock
+              })
+            ]);
+            
+            const pLogsMapped = pLogs.map(log => ({
+              ...log,
+              args: {
+                ...log.args,
+                proposalId: log.args.proposalId?.toString(),
+                values: log.args.values?.map((v: bigint) => v.toString()),
+                voteStart: log.args.voteStart?.toString(),
+                voteEnd: log.args.voteEnd?.toString()
+              },
+              blockNumber: log.blockNumber?.toString()
+            }));
 
-          await set(cacheKey, cachedData);
+            const vLogsMapped = vLogs.map(log => ({
+              ...log,
+              args: {
+                ...log.args,
+                proposalId: log.args.proposalId?.toString(),
+                weight: log.args.weight?.toString()
+              },
+              blockNumber: log.blockNumber?.toString()
+            }));
+
+            newProposalLogs.push(...pLogsMapped);
+            newVoteLogs.push(...vLogsMapped);
+
+            cachedData = {
+              lastBlock: currentToBlock.toString(),
+              proposalLogs: [...cachedData.proposalLogs, ...pLogsMapped],
+              voteLogs: [...cachedData.voteLogs, ...vLogsMapped]
+            };
+
+            await set(cacheKey, cachedData);
+            
+            if (mounted) {
+              setProgress(p => ({ ...p, scanned: Number(currentToBlock) - initialStartBlock }));
+            }
+
+            currentFromBlock = currentToBlock + BigInt(1);
+          }
         }
 
         if (!mounted) return;
