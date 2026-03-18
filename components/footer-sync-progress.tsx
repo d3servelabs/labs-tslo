@@ -2,8 +2,21 @@
 
 import { useState, useEffect } from "react";
 import { DaoConfig } from "@/lib/types";
-import { get } from "idb-keyval";
+import { get as idbGet } from "idb-keyval";
 import { createPublicClient, http } from "viem";
+
+async function get(key: string): Promise<any> {
+  try {
+    return await idbGet(key);
+  } catch (err) {
+    try {
+      const val = localStorage.getItem(key);
+      return val ? JSON.parse(val) : undefined;
+    } catch (lsErr) {
+      return undefined;
+    }
+  }
+}
 
 const defaultRpcUrls: Record<number, string> = {
   1: "https://eth-mainnet.public.blastapi.io"
@@ -29,12 +42,7 @@ export function FooterSyncProgress({ primaryDao }: { primaryDao?: DaoConfig }) {
         const client = getClient(primaryDao!.chainId);
         const cacheKey = `tslo_logs_${primaryDao!.chainId}_${primaryDao!.contracts.governor.toLowerCase()}`;
         
-        let cachedData: any = null;
-        try {
-          cachedData = await get(cacheKey);
-        } catch (err) {
-          // ignore cache read failure
-        }
+        let cachedData: any = await get(cacheKey);
         
         const latestBlock = Number(await client.getBlockNumber());
         const startBlock = primaryDao!.loadStatus?.startBlock ?? 0;

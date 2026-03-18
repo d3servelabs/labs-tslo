@@ -1,8 +1,37 @@
 import { useState, useEffect } from "react";
 import { createPublicClient, http, parseAbiItem, formatUnits } from "viem";
-import { get, set } from "idb-keyval";
+import { get as idbGet, set as idbSet } from "idb-keyval";
 import { DaoConfig, Proposal, ProposalState } from "@/lib/types";
 import { extractAbstract } from "@/lib/format";
+
+// Wrapper for idb-keyval that falls back to localStorage if IndexedDB is completely broken (e.g. Arc/Chrome corruption bug)
+async function get(key: string): Promise<any> {
+  try {
+    return await idbGet(key);
+  } catch (err) {
+    console.warn("IndexedDB get failed, falling back to localStorage", err);
+    try {
+      const val = localStorage.getItem(key);
+      return val ? JSON.parse(val) : undefined;
+    } catch (lsErr) {
+      console.warn("localStorage get also failed", lsErr);
+      return undefined;
+    }
+  }
+}
+
+async function set(key: string, val: any): Promise<void> {
+  try {
+    await idbSet(key, val);
+  } catch (err) {
+    console.warn("IndexedDB set failed, falling back to localStorage", err);
+    try {
+      localStorage.setItem(key, JSON.stringify(val));
+    } catch (lsErr) {
+      console.warn("localStorage set also failed, likely quota exceeded", lsErr);
+    }
+  }
+}
 
 const proposalCreatedEvent = parseAbiItem(
   "event ProposalCreated(uint256 proposalId, address proposer, address[] targets, uint256[] values, string[] signatures, bytes[] calldatas, uint256 voteStart, uint256 voteEnd, string description)"
@@ -160,12 +189,7 @@ export function useDaoSync(dao: DaoConfig, initialStartBlock: number) {
         const client = getClient(dao.chainId);
         const cacheKey = `tslo_logs_${dao.chainId}_${dao.contracts.governor.toLowerCase()}`;
         
-        let cachedData: any = null;
-        try {
-          cachedData = await get(cacheKey);
-        } catch (err) {
-          console.warn("Failed to read from IndexedDB, syncing without persistent cache.", err);
-        }
+        let cachedData: any = await get(cacheKey);
         
         // Migration from lastBlock -> syncedRanges
         if (cachedData && cachedData.lastBlock && !cachedData.syncedRanges) {
@@ -293,11 +317,7 @@ export function useDaoSync(dao: DaoConfig, initialStartBlock: number) {
               voteLogs: [...cachedData.voteLogs, ...vLogsMapped]
             };
 
-            try {
-              await set(cacheKey, cachedData);
-            } catch (err) {
-              console.warn("Failed to write to IndexedDB, cache will not persist across reloads.", err);
-            }
+            await set(cacheKey, cachedData);
             
             if (mounted) {
               const currentScanned = calculateScannedBlocks(mergedRanges, targetStartBlock, latestBlock);
