@@ -26,7 +26,6 @@ export function ProposalCard({ dao, proposal }: { dao: DaoConfig; proposal: Prop
               {proposal.state}
             </span>
           </div>
-          <p className="muted">{proposal.summary}</p>
           <div className="pill-row">
             <span className="metric-pill">
               {proposal.loadStatus?.isPartial ? "End date pending" : `Ends ${formatDate(proposal.votingEndsAt)}`}

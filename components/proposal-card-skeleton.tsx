@@ -7,8 +7,6 @@ export function ProposalCardSkeleton() {
             <div className="loading-bar" style={{ width: "60%", height: "24px" }} />
             <div className="loading-bar" style={{ width: "80px", height: "24px", borderRadius: "999px" }} />
           </div>
-          <div className="loading-bar" style={{ width: "100%", height: "16px", marginTop: "12px" }} />
-          <div className="loading-bar" style={{ width: "85%", height: "16px", marginTop: "8px" }} />
           <div className="pill-row" style={{ marginTop: "16px" }}>
             <div className="loading-bar" style={{ width: "120px", height: "26px", borderRadius: "999px" }} />
             <div className="loading-bar" style={{ width: "90px", height: "26px", borderRadius: "999px" }} />
