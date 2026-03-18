@@ -1,4 +1,4 @@
-# Tally Shall Live On: Preparing for the Worst, Hoping for the Best
+# Tally Shall Live On
 
 ![Tally Shall Live On Cover Image](title-cover.png)
 
@@ -28,7 +28,9 @@ This means that with a new client, that data remains entirely readable and funct
 
 We want to be incredibly clear: **this is by no means an attempt to build a Tally competitor**. Instead, it is a way for us to call for Tally to stay. When you use TSLO, you can clearly see how many features Tally offers and how much craftsmanship went into its beautiful and powerful design—features that are incredibly hard to replicate overnight. We believe this industry desperately needs great projects like Tally. Our cyberpunk movement needs governance tools like Tally now more than ever.
 
-I respectfully disagree with Dennison's view that "the market isn't here" and that "crypto finds its PMF in payments and speculation." My view is that we are on the absolute dawn of mass adoption. I also respectfully disagree that "regulation clarification makes DAOs optional." Instead, I've always seen it simply: a company *is* a DAO, and a DAO is just a company with better governance tools, transparency, and trust. With the rise of xStocks and companies moving their stocks and ownerships onchain, we are closer than ever to seeing public companies native to the blockchain. Their legacy, out-of-date, and severely under-served "proxy voting" systems—which currently rely on phone calls and mail-in ballots—desperately need modern, transparent projects like this.
+I respectfully disagree with Dennison's view that "the market isn't here" and that "crypto finds its PMF in payments and speculation." My view is that we are on the absolute dawn of mass adoption.
+
+I also respectfully disagree that "regulation clarification makes DAOs optional." Instead, I've always seen it simply: a company *is* a DAO, and a DAO is just a company with better governance tools, transparency, and trust. With the rise of xStocks and companies moving their stocks and ownerships onchain, we are closer than ever to seeing public companies native to the blockchain. Their legacy, out-of-date, and severely under-served "proxy voting" systems—which currently rely on phone calls and mail-in ballots—desperately need modern, transparent projects like this.
 
 Tally plays a crucial role in making that trust visible and actionable. Here is our tribute to that mission.
 
