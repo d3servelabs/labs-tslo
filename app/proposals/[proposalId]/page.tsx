@@ -1,8 +1,8 @@
 import { notFound } from "next/navigation";
 
-import { ProposalDetail } from "@/components/proposal-detail";
+import { ProposalDetailWrapper } from "@/components/proposal-detail-wrapper";
 import { getSiteMode } from "@/lib/config";
-import { loadPrimaryDao, loadProposalById } from "@/lib/data-adapter";
+import { loadPrimaryDao } from "@/lib/data-adapter";
 
 export const dynamic = "force-dynamic";
 
@@ -22,11 +22,6 @@ export default async function SingleProposalPage({
   }
 
   const { proposalId } = await params;
-  const proposal = await loadProposalById(dao.slug, proposalId);
 
-  if (!proposal) {
-    notFound();
-  }
-
-  return <ProposalDetail dao={{ ...dao, slug: "" }} proposal={proposal} daoHref="/" />;
+  return <ProposalDetailWrapper dao={{ ...dao, slug: "" }} proposalId={proposalId} daoHref="/" />;
 }
