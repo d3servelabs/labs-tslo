@@ -204,6 +204,7 @@ export function useDaoSync(dao: DaoConfig, initialStartBlock: number) {
 
         while (cursor >= targetStartBlock && mounted) {
           // Check if cursor is already inside a synced range
+          // Find if cursor is strictly within or exactly touching a synced range
           const encompassingRange = mergedRanges.find(r => cursor >= r[0] && cursor <= r[1]);
           if (encompassingRange) {
             cursor = encompassingRange[0] - BigInt(1);
@@ -215,13 +216,18 @@ export function useDaoSync(dao: DaoConfig, initialStartBlock: number) {
           if (fromBlock < targetStartBlock) fromBlock = targetStartBlock;
 
           // Prevent overlap with the nearest lower synced range
-          const overlappingLowerRange = mergedRanges.find(r => r[1] >= fromBlock && r[1] < toBlock);
-          if (overlappingLowerRange) {
-            fromBlock = overlappingLowerRange[1] + BigInt(1);
+          // Find the highest synced range that is below toBlock
+          const lowerRanges = mergedRanges.filter(r => r[1] < toBlock);
+          if (lowerRanges.length > 0) {
+            // Get the maximum end block of all ranges that are strictly below our toBlock
+            const highestLowerEnd = lowerRanges.reduce((max, r) => r[1] > max ? r[1] : max, BigInt(0));
+            if (fromBlock <= highestLowerEnd) {
+              fromBlock = highestLowerEnd + BigInt(1);
+            }
           }
 
           if (fromBlock > toBlock) {
-            cursor = toBlock - BigInt(1);
+            cursor = fromBlock - BigInt(1);
             continue;
           }
 
