@@ -28,7 +28,6 @@ export function ProposalDetail({
       </div>
 
       <section className="section">
-        <div className="eyebrow">{proposal.id}</div>
         <h1 className="proposal-title">{proposal.title}</h1>
         <p className="lede">{proposal.summary}</p>
         {proposal.loadStatus?.isPartial ? (

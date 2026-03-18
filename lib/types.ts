@@ -42,6 +42,9 @@ export interface LoadStatus {
   isPartial: boolean;
   message: string;
   estimate: string;
+  progress?: number;
+  scannedBlocks?: number;
+  totalBlocks?: number;
 }
 
 export interface Proposal {

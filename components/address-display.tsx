@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { formatAddress } from "@/lib/format";
 
@@ -10,16 +10,11 @@ type ExplorerConfig = {
   id: string;
   name: string;
   href: string;
+  favicon: string;
 };
 
-function hashAddress(address: string) {
-  let hash = 0;
-
-  for (const character of address.toLowerCase()) {
-    hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
-  }
-
-  return hash;
+function addressToSeed(address: string) {
+  return parseInt(address.slice(2, 10), 16);
 }
 
 function getExplorerConfigs(chainId: number, address: string): ExplorerConfig[] {
@@ -31,25 +26,29 @@ function getExplorerConfigs(chainId: number, address: string): ExplorerConfig[] 
         {
           id: "etherscan",
           name: "Etherscan",
-          href: `https://etherscan.io/address/${encodedAddress}`
+          href: `https://etherscan.io/address/${encodedAddress}`,
+          favicon: "https://etherscan.io/images/favicon3.ico"
         },
         {
           id: "blockscout",
           name: "Blockscout",
-          href: `https://eth.blockscout.com/address/${encodedAddress}`
+          href: `https://eth.blockscout.com/address/${encodedAddress}`,
+          favicon: "https://www.blockscout.com/images/favicon/favicon-32x32.png"
         }
       ];
     case 10:
       return [
         {
           id: "optimism",
-          name: "Optimism",
-          href: `https://optimistic.etherscan.io/address/${encodedAddress}`
+          name: "Optimistic Etherscan",
+          href: `https://optimistic.etherscan.io/address/${encodedAddress}`,
+          favicon: "https://optimistic.etherscan.io/images/favicon3.ico"
         },
         {
           id: "blockscout",
           name: "Blockscout",
-          href: `https://optimism.blockscout.com/address/${encodedAddress}`
+          href: `https://optimism.blockscout.com/address/${encodedAddress}`,
+          favicon: "https://www.blockscout.com/images/favicon/favicon-32x32.png"
         }
       ];
     case 42161:
@@ -57,12 +56,14 @@ function getExplorerConfigs(chainId: number, address: string): ExplorerConfig[] 
         {
           id: "arbiscan",
           name: "Arbiscan",
-          href: `https://arbiscan.io/address/${encodedAddress}`
+          href: `https://arbiscan.io/address/${encodedAddress}`,
+          favicon: "https://arbiscan.io/images/favicon.ico"
         },
         {
           id: "blockscout",
           name: "Blockscout",
-          href: `https://arbitrum.blockscout.com/address/${encodedAddress}`
+          href: `https://arbitrum.blockscout.com/address/${encodedAddress}`,
+          favicon: "https://www.blockscout.com/images/favicon/favicon-32x32.png"
         }
       ];
     case 8453:
@@ -70,12 +71,14 @@ function getExplorerConfigs(chainId: number, address: string): ExplorerConfig[] 
         {
           id: "basescan",
           name: "Basescan",
-          href: `https://basescan.org/address/${encodedAddress}`
+          href: `https://basescan.org/address/${encodedAddress}`,
+          favicon: "https://basescan.org/images/favicon.ico"
         },
         {
           id: "blockscout",
           name: "Blockscout",
-          href: `https://base.blockscout.com/address/${encodedAddress}`
+          href: `https://base.blockscout.com/address/${encodedAddress}`,
+          favicon: "https://www.blockscout.com/images/favicon/favicon-32x32.png"
         }
       ];
     default:
@@ -83,40 +86,29 @@ function getExplorerConfigs(chainId: number, address: string): ExplorerConfig[] 
   }
 }
 
-function ExplorerLogo({ id }: { id: string }) {
-  if (id === "etherscan" || id === "optimism" || id === "arbiscan" || id === "basescan") {
-    return (
-      <svg viewBox="0 0 24 24" className="explorer-logo-svg" aria-hidden="true">
-        <circle cx="12" cy="12" r="11" fill="currentColor" opacity="0.12" />
-        <path d="M12 4 6.5 13h3.4L8.7 20 17.5 9h-3.6L15 4Z" fill="currentColor" />
-      </svg>
-    );
-  }
+function Jazzicon({ address, size = 32 }: { address: string; size?: number }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    import("@metamask/jazzicon").then((module) => {
+      if (cancelled || !containerRef.current) return;
+      const generate = module.default ?? module;
+      const el = generate(size, addressToSeed(address));
+      containerRef.current.replaceChildren(el);
+    });
+
+    return () => { cancelled = true; };
+  }, [address, size]);
 
   return (
-    <svg viewBox="0 0 24 24" className="explorer-logo-svg" aria-hidden="true">
-      <circle cx="8" cy="8" r="4" fill="currentColor" opacity="0.85" />
-      <circle cx="16" cy="16" r="4" fill="currentColor" opacity="0.65" />
-      <circle cx="16" cy="8" r="2.5" fill="currentColor" opacity="0.45" />
-      <circle cx="8" cy="16" r="2.5" fill="currentColor" opacity="0.35" />
-    </svg>
-  );
-}
-
-function JazzIcon({ address }: { address: string }) {
-  const hash = hashAddress(address);
-  const hueA = hash % 360;
-  const hueB = (hash >> 3) % 360;
-  const hueC = (hash >> 7) % 360;
-
-  return (
-    <svg viewBox="0 0 40 40" className="jazz-icon" aria-hidden="true">
-      <rect width="40" height="40" rx="14" fill={`hsl(${hueA} 58% 90%)`} />
-      <circle cx="12" cy="11" r="9" fill={`hsl(${hueB} 72% 52%)`} />
-      <circle cx="28" cy="13" r="8" fill={`hsl(${hueC} 68% 48%)`} opacity="0.9" />
-      <circle cx="18" cy="27" r="10" fill={`hsl(${(hueA + hueC) % 360} 70% 56%)`} opacity="0.85" />
-      <circle cx="30" cy="30" r="6" fill={`hsl(${(hueB + 90) % 360} 70% 42%)`} opacity="0.9" />
-    </svg>
+    <div
+      ref={containerRef}
+      className="jazz-icon"
+      style={{ width: size, height: size, borderRadius: "50%", overflow: "hidden" }}
+      aria-hidden="true"
+    />
   );
 }
 
@@ -154,7 +146,7 @@ export function AddressDisplay({
   return (
     <div className={`address-display address-display-${mode}`}>
       <div className="address-display-main">
-        <JazzIcon address={address} />
+        <Jazzicon address={address} size={32} />
         <div className="address-display-content">
           <div className="address-display-row">
             <code className="address-display-value" title={address}>
@@ -176,10 +168,18 @@ export function AddressDisplay({
                   href={explorer.href}
                   target="_blank"
                   rel="noreferrer"
-                  className={`explorer-link explorer-link-${explorer.id}`}
+                  className="explorer-link"
+                  title={explorer.name}
                 >
-                  <ExplorerLogo id={explorer.id} />
-                  <span>{explorer.name}</span>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={explorer.favicon}
+                    alt=""
+                    className="explorer-favicon"
+                    width={16}
+                    height={16}
+                  />
+                  <span className="explorer-link-label">{explorer.name}</span>
                 </a>
               ))}
             </div>

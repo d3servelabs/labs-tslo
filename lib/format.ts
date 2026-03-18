@@ -22,6 +22,28 @@ export function formatAddress(value: string) {
   return `${value.slice(0, 6)}...${value.slice(-4)}`;
 }
 
+export function extractAbstract(description: string): string {
+  const abstractPattern = /^#+\s*abstract\b[^\n]*/im;
+  const match = description.search(abstractPattern);
+
+  if (match === -1) {
+    return "";
+  }
+
+  const afterHeader = description.slice(match);
+  const headerEnd = afterHeader.indexOf("\n");
+
+  if (headerEnd === -1) {
+    return "";
+  }
+
+  const body = afterHeader.slice(headerEnd + 1);
+  const nextHeading = body.search(/^#+\s/m);
+  const section = nextHeading === -1 ? body : body.slice(0, nextHeading);
+
+  return section.trim();
+}
+
 export function renderMarkdownBasic(text: string): string {
   const escaped = text
     .replace(/&/g, "&amp;")

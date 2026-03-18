@@ -13,10 +13,7 @@ export function ProposalCard({ dao, proposal }: { dao: DaoConfig; proposal: Prop
   return (
     <Link href={href} className="proposal-card">
       <div className="row-between">
-        <div>
-          <div className="eyebrow">{proposal.id}</div>
-          <h3 className="card-title">{proposal.title}</h3>
-        </div>
+        <h3 className="card-title">{proposal.title}</h3>
         <span className="status-pill" data-status={proposal.state}>
           {proposal.state}
         </span>

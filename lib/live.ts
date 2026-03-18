@@ -6,6 +6,7 @@ import {
   getConfiguredDaos,
   getDaoBySlug as getConfiguredDaoBySlug
 } from "@/lib/config";
+import { extractAbstract } from "@/lib/format";
 import { DaoConfig, Proposal, ProposalState } from "@/lib/types";
 
 const proposalCreatedEvent = parseAbiItem(
@@ -73,6 +74,12 @@ type ProposalLogEntry = {
   latestBlock: bigint;
   title: string;
   summary: string;
+};
+
+type ScanResult = {
+  entries: ProposalLogEntry[];
+  startBlock: number;
+  latestBlock: number;
 };
 
 function getRpcUrl(chainId: number) {
@@ -150,6 +157,12 @@ function extractTitle(description: string, fallbackId: string) {
 }
 
 function extractSummary(description: string, title: string) {
+  const abstract = extractAbstract(description);
+
+  if (abstract) {
+    return abstract.slice(0, 300);
+  }
+
   const lines = description
     .split("\n")
     .map((line) => line.trim())
@@ -243,23 +256,32 @@ function buildDaoStats(baseDao: DaoConfig, proposals: Proposal[]) {
   };
 }
 
-function buildDaoLoadEstimate(proposalCount: number) {
-  const totalDetailReads = proposalCount * 7;
+function formatBlockRange(startBlock: number, latestBlock: number) {
+  const total = latestBlock - startBlock;
+  const scanned = total;
 
-  if (proposalCount === 0) {
-    return "The log scan completed, but no proposals were discovered for this DAO.";
-  }
-
-  return `Loaded ${proposalCount} proposals from logs. Fully hydrating every proposal would take about ${totalDetailReads} deeper RPC reads at roughly 7 reads per proposal.`;
+  return { scanned, total, progress: 100 };
 }
 
-async function loadProposalEntries(dao: DaoConfig, startBlock?: number) {
+function buildDaoLoadEstimate(proposalCount: number, startBlock: number, latestBlock: number) {
+  const totalDetailReads = proposalCount * 7;
+  const blockRange = latestBlock - startBlock;
+
+  if (proposalCount === 0) {
+    return `Scanned ${blockRange.toLocaleString()} blocks (${startBlock.toLocaleString()} to ${latestBlock.toLocaleString()}). No proposals discovered.`;
+  }
+
+  return `Scanned ${blockRange.toLocaleString()} blocks. Found ${proposalCount} proposals. Hydrating each takes ~7 RPC reads (${totalDetailReads} total).`;
+}
+
+async function loadProposalEntries(dao: DaoConfig, configStartBlock?: number): Promise<ScanResult> {
   const client = getClient(dao.chainId);
   const latestBlock = await client.getBlockNumber();
+  const fromBlock = configStartBlock ?? 0;
   const proposalLogs = await client.getLogs({
     address: dao.contracts.governor as `0x${string}`,
     event: proposalCreatedEvent,
-    fromBlock: BigInt(startBlock ?? 0),
+    fromBlock: BigInt(fromBlock),
     toBlock: "latest"
   });
 
@@ -304,7 +326,11 @@ async function loadProposalEntries(dao: DaoConfig, startBlock?: number) {
     })
   );
 
-  return entries.sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+  return {
+    entries: entries.sort((left, right) => right.createdAt.localeCompare(left.createdAt)),
+    startBlock: fromBlock,
+    latestBlock: Number(latestBlock)
+  };
 }
 
 async function loadProposalDetail(dao: DaoConfig, entry: ProposalLogEntry) {
@@ -412,7 +438,7 @@ async function loadProposalDetail(dao: DaoConfig, entry: ProposalLogEntry) {
   } satisfies Proposal;
 }
 
-const getCachedProposalEntries = cache(async (slug: string) => {
+const getCachedScanResult = cache(async (slug: string) => {
   const dao = getConfiguredDaoBySlug(slug);
 
   if (!dao) {
@@ -431,9 +457,13 @@ export const getLiveDaoBySlug = cache(async (slug: string) => {
   }
 
   try {
-    const entries = await getCachedProposalEntries(slug);
-    const proposals = (entries ?? []).map(buildPartialProposal);
-    const estimate = buildDaoLoadEstimate(proposals.length);
+    const scanResult = await getCachedScanResult(slug);
+    const entries = scanResult?.entries ?? [];
+    const proposals = entries.map(buildPartialProposal);
+    const startBlock = scanResult?.startBlock ?? 0;
+    const latestBlock = scanResult?.latestBlock ?? 0;
+    const estimate = buildDaoLoadEstimate(proposals.length, startBlock, latestBlock);
+    const { scanned, total, progress } = formatBlockRange(startBlock, latestBlock);
 
     return {
       ...dao,
@@ -443,11 +473,14 @@ export const getLiveDaoBySlug = cache(async (slug: string) => {
       loadStatus: {
         isPartial: true,
         message:
-          `Proposal discovery is complete for ${proposals.length} proposals, but DAO-wide tallies and final outcomes remain partial until proposal detail reads finish.`,
-        estimate
+          `Discovered ${proposals.length} proposals across ${total.toLocaleString()} blocks. Vote tallies and final outcomes load when you open a proposal.`,
+        estimate,
+        progress,
+        scannedBlocks: scanned,
+        totalBlocks: total
       },
       supportNotes:
-        `TSLO loaded ${proposals.length} proposals from public JSON-RPC. Proposal details still hydrate incrementally when you open a proposal.`
+        `TSLO scanned blocks ${startBlock.toLocaleString()}–${latestBlock.toLocaleString()} via public JSON-RPC. Proposal details hydrate on demand.`
     } satisfies DaoConfig;
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown error";
@@ -459,9 +492,10 @@ export const getLiveDaoBySlug = cache(async (slug: string) => {
       stats: buildDaoStats(dao, []),
       loadStatus: {
         isPartial: true,
-        message: `TSLO could not finish the public RPC scan yet: ${message}`,
+        message: `RPC scan incomplete: ${message}`,
         estimate:
-          "Public RPC retries can take tens of seconds. Proposal totals and list data will appear once the log scan succeeds."
+          "Public RPC retries can take tens of seconds. Proposal totals and list data will appear once the log scan succeeds.",
+        progress: 0
       },
       supportNotes: `Live public JSON-RPC loading is still in progress or failed on this request: ${message}`
     } satisfies DaoConfig;
@@ -491,8 +525,8 @@ export const getLiveProposalById = cache(async (slug: string, proposalId: string
   }
 
   try {
-    const entries = await getCachedProposalEntries(slug);
-    const entry = entries?.find((candidate) => {
+    const scanResult = await getCachedScanResult(slug);
+    const entry = scanResult?.entries.find((candidate) => {
       const id = candidate.proposalId.toString();
       const entrySlug = `${slugify(candidate.title)}-${id.slice(-6)}`;
       const normalizedProposalId = proposalId.toLowerCase();
@@ -506,8 +540,8 @@ export const getLiveProposalById = cache(async (slug: string, proposalId: string
 
     return await loadProposalDetail(dao, entry);
   } catch (error) {
-    const entries = await getCachedProposalEntries(slug).catch(() => undefined);
-    const entry = entries?.find((candidate) => {
+    const scanResult = await getCachedScanResult(slug).catch(() => undefined);
+    const entry = scanResult?.entries.find((candidate) => {
       const id = candidate.proposalId.toString();
       const entrySlug = `${slugify(candidate.title)}-${id.slice(-6)}`;
       const normalizedProposalId = proposalId.toLowerCase();

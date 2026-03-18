@@ -89,7 +89,7 @@ export function DaoOverview({
             pretending every DAO supports identical write paths.
           </p>
           {dao.loadStatus?.isPartial ? (
-            <LoadStatusBanner variant="info" message={dao.loadStatus.message} estimate={dao.loadStatus.estimate} />
+            <LoadStatusBanner variant="info" message={dao.loadStatus.message} estimate={dao.loadStatus.estimate} progress={dao.loadStatus.progress} />
           ) : null}
           {dao.supportNotes ? <p className="footnote">{dao.supportNotes}</p> : null}
         </div>

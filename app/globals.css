@@ -419,23 +419,39 @@ select {
 .explorer-link {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
+  gap: 6px;
+  padding: 5px 8px;
   border-radius: 999px;
   border: 1px solid rgba(15, 23, 42, 0.08);
   background: rgba(15, 118, 110, 0.06);
   color: var(--accent-strong);
   font-size: 0.84rem;
+  transition: padding 160ms ease, gap 160ms ease;
+}
+
+.explorer-link-label {
+  display: none;
+  white-space: nowrap;
+}
+
+.explorer-link:hover .explorer-link-label {
+  display: inline;
+}
+
+.explorer-link:hover {
+  padding: 5px 10px;
+  gap: 8px;
 }
 
 .explorer-link-generic {
   color: var(--muted);
 }
 
-.explorer-logo-svg {
+.explorer-favicon {
   width: 16px;
   height: 16px;
   flex: 0 0 auto;
+  border-radius: 2px;
 }
 
 .address-copy-button {
@@ -532,13 +548,15 @@ select {
 }
 
 .code-block {
-  overflow-x: auto;
   border-radius: var(--radius-sm);
   background: #111827;
   color: #e5e7eb;
   padding: 16px;
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
   font-size: 0.86rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-all;
 }
 
 .wallet-card {
@@ -624,6 +642,26 @@ select {
 .load-status-icon {
   flex: 0 0 auto;
   font-size: 0.95rem;
+}
+
+.load-status-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.load-progress-track {
+  margin-top: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(59, 130, 246, 0.12);
+  overflow: hidden;
+}
+
+.load-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #3b82f6, #0f766e);
+  transition: width 400ms ease;
 }
 
 /* Loading skeletons */
