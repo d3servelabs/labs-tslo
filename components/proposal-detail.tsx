@@ -3,8 +3,13 @@ import Link from "next/link";
 
 import { AddressDisplay } from "@/components/address-display";
 import { LoadStatusBanner } from "@/components/load-status-banner";
-import { ProposalVoteBars } from "@/components/proposal-vote-bars";
-import { formatDate, formatPercent, renderMarkdownBasic } from "@/lib/format";
+import { VoteSummaryCard } from "@/components/vote-summary-card";
+import { StatusTimeline } from "@/components/status-timeline";
+import { Tabs } from "@/components/tabs";
+import { TruncatedDescription } from "@/components/truncated-description";
+import { ActionCard } from "@/components/action-card";
+import { VoterList } from "@/components/voter-list";
+import { formatDate, renderMarkdownBasic } from "@/lib/format";
 import { DaoConfig, Proposal } from "@/lib/types";
 
 export function ProposalDetail({
@@ -18,10 +23,14 @@ export function ProposalDetail({
 }) {
   return (
     <main className="shell proposal-shell">
-      <div className="row-between">
-        <Link href={daoHref as Route} className="button-secondary">
-          Back to {dao.shortName}
-        </Link>
+      <div className="row-between breadcrumb-row">
+        <div className="breadcrumb">
+          <Link href={daoHref as Route} className="breadcrumb-link">
+            Proposals
+          </Link>
+          <span className="breadcrumb-separator">/</span>
+          <span className="breadcrumb-current">Proposal</span>
+        </div>
         <span className="status-pill" data-status={proposal.state}>
           {proposal.state}
         </span>
@@ -29,79 +38,66 @@ export function ProposalDetail({
 
       <section className="section">
         <h1 className="proposal-title">{proposal.title}</h1>
-        <p className="lede">{proposal.summary}</p>
         {proposal.loadStatus?.isPartial ? (
           <LoadStatusBanner variant="info" message={proposal.loadStatus.message} estimate={proposal.loadStatus.estimate} />
         ) : null}
-        <div className="pill-row">
-          <span className="metric-pill">Created {formatDate(proposal.createdAt)}</span>
-          <span className="metric-pill">
-            {proposal.loadStatus?.isPartial ? "Turnout pending" : `Turnout ${formatPercent(proposal.turnout)}`}
-          </span>
+        
+        <div className="proposal-meta-line">
+          <AddressDisplay chainId={dao.chainId} address={proposal.proposer} mode="inline" />
+          <span className="meta-separator">•</span>
+          <span className="meta-text">ID {proposal.id.slice(0, 6)}...{proposal.id.slice(-4)}</span>
+          <span className="meta-separator">•</span>
+          <span className="meta-text">Proposed on: {formatDate(proposal.createdAt)}</span>
         </div>
-        <div className="proposal-meta-grid">
-          <div className="proposal-meta-panel">
-            <div className="eyebrow">Proposer</div>
-            <AddressDisplay chainId={dao.chainId} address={proposal.proposer} mode="inline" />
-          </div>
-          <div className="proposal-meta-panel">
-            <div className="eyebrow">Voting Window</div>
-            <div className="proposal-meta-copy">
-              {proposal.loadStatus?.isPartial
-                ? "Voting window not yet resolved"
-                : `${formatDate(proposal.votingStartsAt)} to ${formatDate(proposal.votingEndsAt)}`}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="section panel">
-        <div className="eyebrow">Description</div>
-        <div
-          className="proposal-description"
-          dangerouslySetInnerHTML={{ __html: renderMarkdownBasic(proposal.description) }}
-        />
       </section>
 
       <section className="section proposal-grid">
-        <div className="panel">
-          <div className="eyebrow">Vote breakdown</div>
-          <ProposalVoteBars votes={proposal.votes} />
-          <div className="footnote">
-            Voting window: {formatDate(proposal.votingStartsAt)} to {formatDate(proposal.votingEndsAt)}
+        <div className="proposal-main-column">
+          <div className="panel">
+            <TruncatedDescription htmlContent={renderMarkdownBasic(proposal.description)} />
           </div>
-        </div>
-        <div className="panel">
-          <div className="eyebrow">Lifecycle</div>
-          <div className="timeline">
-            {proposal.timeline.map((step) => (
-              <div key={step.label} className="timeline-item">
-                <div className="timeline-dot" data-complete={step.complete} />
-                <div>
-                  <strong>{step.label}</strong>
-                  <div className="timeline-note">{formatDate(step.timestamp)}</div>
-                  <div className="footnote">{step.note}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
 
-      <section className="section panel">
-        <div className="eyebrow">Executable actions</div>
-        <div className="call-data-list">
-          {proposal.actions.map((action, index) => (
-            <div key={`${action.target}-${index}`} className="call-data-item">
-              <div className="row-between">
-                <strong>{action.signature}</strong>
-                <span className="proposal-action-index">Action {index + 1}</span>
-              </div>
-              <p className="muted">{action.summary}</p>
-              <AddressDisplay chainId={dao.chainId} address={action.target} mode="inline" />
-              <pre className="code-block">{action.calldata}</pre>
+          <div className="panel proposal-actions-panel">
+            <h2 className="panel-title">Executable Actions</h2>
+            <div className="call-data-list">
+              {proposal.actions.map((action, index) => (
+                <ActionCard key={`${action.target}-${index}`} action={action} index={index} chainId={dao.chainId} />
+              ))}
             </div>
-          ))}
+          </div>
+
+          <div className="panel proposal-voters-panel">
+            <h2 className="panel-title">Votes</h2>
+            <VoterList voters={proposal.voters ?? []} chainId={dao.chainId} />
+          </div>
+        </div>
+
+        <div className="proposal-sidebar">
+          <div className="panel sidebar-panel">
+            <h3 className="sidebar-title">Final Votes</h3>
+            <VoteSummaryCard votes={proposal.votes} />
+          </div>
+
+          {proposal.actions.length > 0 && (
+            <div className="panel sidebar-panel tenderly-panel">
+              <a
+                href={dao.tenderlyProjectUrl ? `${dao.tenderlyProjectUrl}/simulator/new?network=${dao.chainId}&to=${proposal.actions[0]?.target}&data=${proposal.actions[0]?.calldata}` : `https://dashboard.tenderly.co/simulator/new?network=${dao.chainId}&to=${proposal.actions[0]?.target}&data=${proposal.actions[0]?.calldata}`}
+                target="_blank"
+                rel="noreferrer"
+                className="tenderly-link"
+              >
+                <div className="tenderly-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12h4l3-9 5 18 3-9h5"/></svg>
+                </div>
+                <span>Simulate on Tenderly</span>
+              </a>
+            </div>
+          )}
+
+          <div className="panel sidebar-panel timeline-panel">
+            <h3 className="sidebar-title">Status</h3>
+            <StatusTimeline timeline={proposal.timeline} chainId={dao.chainId} />
+          </div>
         </div>
       </section>
     </main>

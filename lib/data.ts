@@ -103,6 +103,7 @@ export const fixtureDaos: DaoConfig[] = [
             summary: "Approve a treasury automation module under timelock control."
           }
         ],
+        voters: [],
         timeline: [
           {
             label: "Created",
@@ -241,6 +242,7 @@ export const fixtureDaos: DaoConfig[] = [
             summary: "Require 12 months of ETH-denominated treasury runway."
           }
         ],
+        voters: [],
         timeline: [
           {
             label: "Created",
@@ -299,6 +301,7 @@ export const fixtureDaos: DaoConfig[] = [
             summary: "Set diversification cap to 8% with 50 bps slippage control."
           }
         ],
+        voters: [],
         timeline: [
           {
             label: "Created",

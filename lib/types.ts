@@ -31,11 +31,15 @@ export interface VoteTally {
   quorum: number;
 }
 
+export type TimelineIconType = "plus" | "publish" | "play" | "stop" | "success" | "defeat" | "execute";
+
 export interface TimelineStep {
   label: string;
   timestamp: string;
   complete: boolean;
   note: string;
+  icon?: TimelineIconType;
+  actor?: string;
 }
 
 export interface LoadStatus {
@@ -45,6 +49,13 @@ export interface LoadStatus {
   progress?: number;
   scannedBlocks?: number;
   totalBlocks?: number;
+}
+
+export interface Vote {
+  voter: string;
+  support: "for" | "against" | "abstain";
+  weight: number;
+  timestamp: string;
 }
 
 export interface Proposal {
@@ -63,6 +74,7 @@ export interface Proposal {
   votes: VoteTally;
   actions: ActionCall[];
   timeline: TimelineStep[];
+  voters?: Vote[];
   loadStatus?: LoadStatus;
 }
 
@@ -95,6 +107,7 @@ export interface DaoConfig {
   description: string;
   chainId: number;
   chainName: string;
+  tenderlyProjectUrl?: string;
   governanceType: string;
   governanceVersion: string;
   brandColor: string;
@@ -126,6 +139,7 @@ export interface TsloDaoConfigInput {
   forumUrl?: string;
   docsUrl?: string;
   treasuryUrl?: string;
+  tenderlyProjectUrl?: string;
   chainId: number;
   chainName: string;
   startBlock?: number;

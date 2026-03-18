@@ -13,6 +13,10 @@ const proposalCreatedEvent = parseAbiItem(
   "event ProposalCreated(uint256 proposalId, address proposer, address[] targets, uint256[] values, string[] signatures, bytes[] calldatas, uint256 voteStart, uint256 voteEnd, string description)"
 );
 
+const voteCastEvent = parseAbiItem(
+  "event VoteCast(address indexed voter, uint256 proposalId, uint8 support, uint256 weight, string reason)"
+);
+
 const governorReadAbi = [
   {
     inputs: [{ internalType: "uint256", name: "proposalId", type: "uint256" }],
@@ -216,9 +220,12 @@ function buildPartialProposal(entry: ProposalLogEntry): Proposal {
         label: "Created",
         timestamp: entry.createdAt,
         complete: true,
-        note: "ProposalCreated event loaded from the governor."
+        note: "ProposalCreated event loaded from the governor.",
+        icon: "plus",
+        actor: entry.proposer
       }
     ],
+    voters: [],
     loadStatus: {
       isPartial: true,
       message: "Proposal list data is loaded, but vote tallies, quorum, and final outcome are still pending a deeper RPC read.",
@@ -390,6 +397,32 @@ async function loadProposalDetail(dao: DaoConfig, entry: ProposalLogEntry) {
   const turnout =
     Number(quorumValue) > 0 ? Math.min((Number(totalVotes) / Number(quorumValue)) * 100, 999) : 0;
 
+  // Fetch VoteCast logs
+  let voteLogs: any[] = [];
+  try {
+    voteLogs = await client.getLogs({
+      address: dao.contracts.governor as `0x${string}`,
+      event: voteCastEvent,
+      fromBlock: entry.blockNumber,
+      toBlock: Number(deadlineBlock) > 0 ? deadlineBlock : "latest"
+    });
+  } catch (error) {
+    console.warn("Could not fetch VoteCast logs:", error);
+  }
+
+  const proposalVoteLogs = voteLogs.filter((log) => log.args.proposalId === entry.proposalId);
+  const voters = await Promise.all(
+    proposalVoteLogs.map(async (log) => {
+      const timestamp = await getBlockTimestamp(log.blockNumber);
+      return {
+        voter: log.args.voter,
+        support: log.args.support === 0 ? "against" : log.args.support === 1 ? "for" : "abstain",
+        weight: formatVoteValue(log.args.weight),
+        timestamp: formatDate(timestamp)
+      };
+    })
+  );
+
   return {
     id: entry.proposalId.toString(),
     title: entry.title,
@@ -420,21 +453,26 @@ async function loadProposalDetail(dao: DaoConfig, entry: ProposalLogEntry) {
         label: "Created",
         timestamp: entry.createdAt,
         complete: true,
-        note: "ProposalCreated event emitted by the governor."
+        note: "ProposalCreated event emitted by the governor.",
+        icon: "plus",
+        actor: entry.proposer
       },
       {
         label: "Voting opens",
         timestamp: formatDate(snapshotTimestamp),
         complete: true,
-        note: `Snapshot block ${snapshotBlock.toString()}.`
+        note: `Snapshot block ${snapshotBlock.toString()}.`,
+        icon: "play"
       },
       {
         label: "Voting closes",
         timestamp: formatDate(deadlineTimestamp),
         complete: mapProposalState(Number(rawState)) !== "pending" && mapProposalState(Number(rawState)) !== "active",
-        note: `Deadline block ${deadlineBlock.toString()}.`
+        note: `Deadline block ${deadlineBlock.toString()}.`,
+        icon: "stop"
       }
-    ]
+    ],
+    voters: voters as any
   } satisfies Proposal;
 }
 
