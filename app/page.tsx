@@ -25,26 +25,7 @@ export default async function HomePage() {
 
   if (mode === "single" && primaryDao) {
     return (
-      <>
-        <DaoOverview dao={{ ...primaryDao, slug: "" }} apiBasePath="/api/dao" adapterKind={adapterKind} />
-        <section className="shell section grid-2">
-          <div className="panel">
-            <div className="eyebrow">Deployment Mode</div>
-            <h3 className="card-title">Single DAO install</h3>
-            <p className="muted">
-              This deployment behaves like a single-site WordPress install. The DAO is the site, so
-              proposal routes omit the DAO slug and branding follows the configured protocol.
-            </p>
-            <div className="pill-row">
-              <span className="metric-pill">{primaryDao.name}</span>
-              <span className="metric-pill">{primaryDao.chainName}</span>
-              <span className="metric-pill">{config.siteName}</span>
-              <span className="metric-pill">Adapter {adapterKind}</span>
-            </div>
-          </div>
-          <WalletCard />
-        </section>
-      </>
+      <DaoOverview dao={{ ...primaryDao, slug: "" }} apiBasePath="/api/dao" adapterKind={adapterKind} />
     );
   }
 

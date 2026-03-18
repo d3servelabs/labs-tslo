@@ -87,28 +87,6 @@ export function DaoOverview({
 
       <section className="section grid-2">
         <div className="panel">
-          <div className="eyebrow">Capabilities</div>
-          <div className="pill-row">
-            {dao.capabilityFlags.length > 0 ? (
-              dao.capabilityFlags.map((capability) => (
-                <span key={capability} className="metric-pill">
-                  {capability}
-                </span>
-              ))
-            ) : (
-              <span className="metric-pill">Awaiting capability detection</span>
-            )}
-          </div>
-          <p className="footnote">
-            TSLO keeps capability flags explicit so Governor variants fail safely instead of
-            pretending every DAO supports identical write paths.
-          </p>
-          {dao.loadStatus?.isPartial ? (
-            <LoadStatusBanner variant="info" message={dao.loadStatus.message} estimate={dao.loadStatus.estimate} progress={dao.loadStatus.progress} />
-          ) : null}
-          {dao.supportNotes ? <p className="footnote">{dao.supportNotes}</p> : null}
-        </div>
-        <div className="panel">
           <div className="eyebrow">Links</div>
           <div className="activity-list">
             <a className="activity-item" href={dao.links.website} target="_blank" rel="noreferrer">
@@ -125,10 +103,28 @@ export function DaoOverview({
             </a>
           </div>
         </div>
+        <div className="panel">
+          <div className="eyebrow">Recent activity</div>
+          <div className="activity-list">
+            {dao.activity.length > 0 ? (
+              dao.activity.map((item) => (
+                <div key={`${item.label}-${item.timestamp}`} className="activity-item">
+                  <div className="row-between">
+                    <strong>{item.label}</strong>
+                    <span>{new Date(item.timestamp).toLocaleDateString("en-US")}</span>
+                  </div>
+                  <div className="footnote">{item.detail}</div>
+                </div>
+              ))
+            ) : (
+              <div className="empty-state">No indexed governance activity yet.</div>
+            )}
+          </div>
+        </div>
       </section>
 
       <section className="section grid-2">
-        <div className="panel">
+        <div className="panel" style={{ gridColumn: "1 / -1" }}>
           <div className="eyebrow">Active delegates</div>
           <div className="activity-list">
             {dao.delegates.length > 0 ? (
@@ -147,24 +143,6 @@ export function DaoOverview({
                   ? "Delegate data is not loaded yet. TSLO is currently reading proposal history first; delegate data can be added in a later live pass."
                   : "Delegate data is not available from the current adapter yet."}
               </div>
-            )}
-          </div>
-        </div>
-        <div className="panel">
-          <div className="eyebrow">Recent activity</div>
-          <div className="activity-list">
-            {dao.activity.length > 0 ? (
-              dao.activity.map((item) => (
-                <div key={`${item.label}-${item.timestamp}`} className="activity-item">
-                  <div className="row-between">
-                    <strong>{item.label}</strong>
-                    <span>{new Date(item.timestamp).toLocaleDateString("en-US")}</span>
-                  </div>
-                  <div className="footnote">{item.detail}</div>
-                </div>
-              ))
-            ) : (
-              <div className="empty-state">No indexed governance activity yet.</div>
             )}
           </div>
         </div>
