@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { encodeFunctionData, parseEther } from "viem";
 
 const proposeAbi = [
@@ -33,6 +34,11 @@ export function CreateProposalButton({
   const [status, setStatus] = useState("");
   const [pending, setPending] = useState(false);
   const chainHex = useMemo(() => `0x${chainId.toString(16)}`, [chainId]);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   function splitList(raw: string) {
     return raw
@@ -66,10 +72,16 @@ export function CreateProposalButton({
       return;
     }
 
-    const values =
-      valueInputs.length === 1 && targets.length > 1
-        ? Array.from({ length: targets.length }, () => parseEther(valueInputs[0] ?? "0"))
-        : valueInputs.map((value) => parseEther(value));
+    let values: readonly bigint[];
+    try {
+      values =
+        valueInputs.length === 1 && targets.length > 1
+          ? Array.from({ length: targets.length }, () => parseEther(valueInputs[0] ?? "0"))
+          : valueInputs.map((value) => parseEther(value));
+    } catch (err) {
+      setStatus("Invalid ETH value provided.");
+      return;
+    }
 
     if (values.length !== targets.length) {
       setStatus("Values must be one value or the same length as targets.");
@@ -119,6 +131,13 @@ export function CreateProposalButton({
 
       setStatus(`Proposal transaction submitted: ${txHash.slice(0, 10)}...`);
       setOpen(false);
+      
+      // Clear form after success
+      setTargetsRaw("");
+      setValuesRaw("0");
+      setCalldatasRaw("0x");
+      setDescription("");
+      
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Proposal transaction failed.");
     } finally {
@@ -126,57 +145,73 @@ export function CreateProposalButton({
     }
   }
 
-  return (
-    <div className="create-proposal-wrap">
-      <button type="button" className="button" onClick={() => setOpen((value) => !value)}>
-        Create Proposal
-      </button>
-      {open ? (
-        <div className="panel create-proposal-panel">
-          <div className="create-proposal-fields">
-            <label>
-              Target address(es)
-              <textarea
-                className="search-input"
-                value={targetsRaw}
-                onChange={(event) => setTargetsRaw(event.target.value)}
-                placeholder="0xabc..., 0xdef..."
-              />
-            </label>
-            <label>
-              ETH value(s)
-              <textarea
-                className="search-input"
-                value={valuesRaw}
-                onChange={(event) => setValuesRaw(event.target.value)}
-                placeholder="0 or 0.5"
-              />
-            </label>
-            <label>
-              Calldata item(s)
-              <textarea
-                className="search-input"
-                value={calldatasRaw}
-                onChange={(event) => setCalldatasRaw(event.target.value)}
-                placeholder="0xabcdef..."
-              />
-            </label>
-            <label>
-              Description
-              <textarea
-                className="search-input"
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-                placeholder="Proposal summary and rationale"
-              />
-            </label>
-          </div>
-          <button type="button" className="button" onClick={submitProposal} disabled={pending}>
-            {pending ? "Submitting..." : "Create Proposal"}
+  const modalContent = open && mounted ? (
+    <div className="modal-overlay" onClick={() => setOpen(false)}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2 className="modal-title">Create Proposal</h2>
+          <button className="modal-close" onClick={() => setOpen(false)} aria-label="Close modal">
+            &times;
           </button>
         </div>
-      ) : null}
-      {status ? <p className="footnote">{status}</p> : null}
+        <div className="create-proposal-fields">
+          <label>
+            Target address(es)
+            <textarea
+              className="search-input"
+              value={targetsRaw}
+              onChange={(event) => setTargetsRaw(event.target.value)}
+              placeholder="0xabc..., 0xdef..."
+            />
+          </label>
+          <label>
+            ETH value(s)
+            <textarea
+              className="search-input"
+              value={valuesRaw}
+              onChange={(event) => setValuesRaw(event.target.value)}
+              placeholder="0 or 0.5"
+            />
+          </label>
+          <label>
+            Calldata item(s)
+            <textarea
+              className="search-input"
+              value={calldatasRaw}
+              onChange={(event) => setCalldatasRaw(event.target.value)}
+              placeholder="0xabcdef..."
+            />
+          </label>
+          <label>
+            Description
+            <textarea
+              className="search-input"
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+              placeholder="Proposal summary and rationale"
+            />
+          </label>
+        </div>
+        <div className="cta-row" style={{ marginTop: "24px" }}>
+          <button type="button" className="button" onClick={submitProposal} disabled={pending}>
+            {pending ? "Submitting..." : "Submit to Network"}
+          </button>
+          <button type="button" className="button-secondary" onClick={() => setOpen(false)}>
+            Cancel
+          </button>
+        </div>
+        {status ? <p className="footnote" style={{ color: pending ? "inherit" : "var(--danger)" }}>{status}</p> : null}
+      </div>
+    </div>
+  ) : null;
+
+  return (
+    <div className="create-proposal-wrap">
+      <button type="button" className="button" onClick={() => setOpen(true)}>
+        Create Proposal
+      </button>
+      {mounted && createPortal(modalContent, document.body)}
+      {status && !open ? <p className="footnote">{status}</p> : null}
     </div>
   );
 }
