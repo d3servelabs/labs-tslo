@@ -80,66 +80,95 @@ export function useDaoSync(dao: DaoConfig, initialStartBlock: number) {
           // Most free RPCs allow 100k or 50k blocks; using 49999 to be safe and fast
           const BATCH_SIZE = BigInt(49999);
 
+          // Simple rate limiter state
+          let rateLimitDelay = 1000; // start with 1s delay on failure
+          let consecutiveErrors = 0;
+
           while (currentFromBlock <= latestBlock && mounted) {
             const currentToBlock = currentFromBlock + BATCH_SIZE > latestBlock ? latestBlock : currentFromBlock + BATCH_SIZE;
 
-            const [pLogs, vLogs] = await Promise.all([
-              client.getLogs({
-                address: dao.contracts.governor as `0x${string}`,
-                event: proposalCreatedEvent,
-                fromBlock: currentFromBlock,
-                toBlock: currentToBlock
-              }),
-              client.getLogs({
-                address: dao.contracts.governor as `0x${string}`,
-                event: voteCastEvent,
-                fromBlock: currentFromBlock,
-                toBlock: currentToBlock
-              })
-            ]);
-            
-            const pLogsMapped = pLogs.map(log => ({
-              args: {
-                proposalId: log.args.proposalId?.toString(),
-                proposer: log.args.proposer,
-                targets: log.args.targets,
-                values: log.args.values?.map((v: bigint) => v.toString()),
-                signatures: log.args.signatures,
-                calldatas: log.args.calldatas,
-                voteStart: log.args.voteStart?.toString(),
-                voteEnd: log.args.voteEnd?.toString(),
-                description: log.args.description
-              },
-              blockNumber: log.blockNumber?.toString()
-            }));
+            try {
+              // Add a small delay between batches to respect rate limits (BlastAPI public: ~40 req/sec)
+              await new Promise(resolve => setTimeout(resolve, 300));
 
-            const vLogsMapped = vLogs.map(log => ({
-              args: {
-                proposalId: log.args.proposalId?.toString(),
-                voter: log.args.voter,
-                support: log.args.support,
-                weight: log.args.weight?.toString(),
-                reason: log.args.reason
-              },
-              blockNumber: log.blockNumber?.toString()
-            }));
+              const [pLogs, vLogs] = await Promise.all([
+                client.getLogs({
+                  address: dao.contracts.governor as `0x${string}`,
+                  event: proposalCreatedEvent,
+                  fromBlock: currentFromBlock,
+                  toBlock: currentToBlock
+                }),
+                client.getLogs({
+                  address: dao.contracts.governor as `0x${string}`,
+                  event: voteCastEvent,
+                  fromBlock: currentFromBlock,
+                  toBlock: currentToBlock
+                })
+              ]);
+              
+              const pLogsMapped = pLogs.map(log => ({
+                args: {
+                  proposalId: log.args.proposalId?.toString(),
+                  proposer: log.args.proposer,
+                  targets: log.args.targets,
+                  values: log.args.values?.map((v: bigint) => v.toString()),
+                  signatures: log.args.signatures,
+                  calldatas: log.args.calldatas,
+                  voteStart: log.args.voteStart?.toString(),
+                  voteEnd: log.args.voteEnd?.toString(),
+                  description: log.args.description
+                },
+                blockNumber: log.blockNumber?.toString()
+              }));
 
-            newProposalLogs.push(...pLogsMapped);
-            newVoteLogs.push(...vLogsMapped);
+              const vLogsMapped = vLogs.map(log => ({
+                args: {
+                  proposalId: log.args.proposalId?.toString(),
+                  voter: log.args.voter,
+                  support: log.args.support,
+                  weight: log.args.weight?.toString(),
+                  reason: log.args.reason
+                },
+                blockNumber: log.blockNumber?.toString()
+              }));
 
-            cachedData = {
-              lastBlock: currentToBlock.toString(),
-              proposalLogs: [...cachedData.proposalLogs, ...pLogsMapped],
-              voteLogs: [...cachedData.voteLogs, ...vLogsMapped]
-            };
+              newProposalLogs.push(...pLogsMapped);
+              newVoteLogs.push(...vLogsMapped);
 
-            await set(cacheKey, cachedData);
-            
-            if (mounted) {
-              setProgress(p => ({ ...p, scanned: Number(currentToBlock) - initialStartBlock }));
+              cachedData = {
+                lastBlock: currentToBlock.toString(),
+                proposalLogs: [...cachedData.proposalLogs, ...pLogsMapped],
+                voteLogs: [...cachedData.voteLogs, ...vLogsMapped]
+              };
+
+              await set(cacheKey, cachedData);
+              
+              if (mounted) {
+                setProgress(p => ({ ...p, scanned: Number(currentToBlock) - initialStartBlock }));
+              }
+
+              currentFromBlock = currentToBlock + BigInt(1);
+              
+              // Reset error state on success
+              rateLimitDelay = 1000;
+              consecutiveErrors = 0;
+
+            } catch (error: any) {
+              console.warn(`RPC error fetching logs (from ${currentFromBlock} to ${currentToBlock}):`, error.message);
+              consecutiveErrors++;
+              
+              if (consecutiveErrors > 5) {
+                console.error("Too many consecutive RPC errors. Aborting sync.");
+                break; // Give up after 5 retries
+              }
+              
+              // Exponential backoff
+              console.log(`Waiting ${rateLimitDelay}ms before retrying...`);
+              await new Promise(resolve => setTimeout(resolve, rateLimitDelay));
+              rateLimitDelay *= 2; 
+              
+              // Do NOT advance currentFromBlock; the loop will retry the same block range
             }
-
-            currentFromBlock = currentToBlock + BigInt(1);
           }
         }
 
@@ -173,49 +202,49 @@ export function useDaoSync(dao: DaoConfig, initialStartBlock: number) {
             voter: log.args.voter,
             support: support === 0 ? "against" : support === 1 ? "for" : "abstain",
             weight: formatVoteValue(weight),
-            timestamp: await getBlockTimestamp(log.blockNumber).then(formatDate)
+            timestamp: "" // We don't need accurate timestamps for individual votes (not shown in UI), avoiding 10,000+ RPC calls
           });
         }
 
-        const newProposals = await Promise.all(
-          cachedData.proposalLogs.map(async (log: any) => {
-            const args = log.args;
-            const createdAt = formatDate(await getBlockTimestamp(log.blockNumber));
-            const title = extractTitle(args.description, args.proposalId);
-            const stats = voteStatsMap.get(args.proposalId);
-            const forVotes = stats ? formatVoteValue(stats.for) : 0;
-            const againstVotes = stats ? formatVoteValue(stats.against) : 0;
-            const abstainVotes = stats ? formatVoteValue(stats.abstain) : 0;
-            const totalVotes = forVotes + againstVotes + abstainVotes;
+        // Build proposals sequentially to avoid hitting RPC rate limits with concurrent getBlock calls
+        const newProposals = [];
+        for (const log of cachedData.proposalLogs) {
+          const args = log.args;
+          const createdAt = formatDate(await getBlockTimestamp(log.blockNumber));
+          const title = extractTitle(args.description, args.proposalId);
+          const stats = voteStatsMap.get(args.proposalId);
+          const forVotes = stats ? formatVoteValue(stats.for) : 0;
+          const againstVotes = stats ? formatVoteValue(stats.against) : 0;
+          const abstainVotes = stats ? formatVoteValue(stats.abstain) : 0;
+          const totalVotes = forVotes + againstVotes + abstainVotes;
 
-            return {
-              id: args.proposalId,
-              title,
-              slug: `${slugify(title)}-${args.proposalId.slice(-6)}`,
-              summary: extractSummary(args.description, title),
-              state: inferPartialState(latestBlock, BigInt(args.voteStart), BigInt(args.voteEnd)),
-              proposer: args.proposer,
-              createdAt,
-              votingStartsAt: createdAt,
-              votingEndsAt: createdAt,
-              description: args.description,
-              turnout: 0,
-              votes: { for: forVotes, against: againstVotes, abstain: abstainVotes, quorum: 0 },
-              totalVotes,
-              voterCount: stats ? stats.voters.size : 0,
-              actions: args.targets.map((target: string, index: number) => ({
-                target,
-                value: args.values[index],
-                signature: args.signatures[index] || "call()",
-                calldata: args.calldatas[index],
-                summary: buildActionSummary(args.signatures[index], target)
-              })),
-              timeline: [{ label: "Created", timestamp: createdAt, complete: true, note: "ProposalCreated event loaded from the governor.", icon: "plus", actor: args.proposer }],
-              voters: stats ? stats.voteList : [],
-              loadStatus: { isPartial: false, message: "Client synced.", estimate: "" }
-            } as Proposal;
-          })
-        );
+          newProposals.push({
+            id: args.proposalId,
+            title,
+            slug: `${slugify(title)}-${args.proposalId.slice(-6)}`,
+            summary: extractSummary(args.description, title),
+            state: inferPartialState(latestBlock, BigInt(args.voteStart), BigInt(args.voteEnd)),
+            proposer: args.proposer,
+            createdAt,
+            votingStartsAt: createdAt,
+            votingEndsAt: createdAt,
+            description: args.description,
+            turnout: 0,
+            votes: { for: forVotes, against: againstVotes, abstain: abstainVotes, quorum: 0 },
+            totalVotes,
+            voterCount: stats ? stats.voters.size : 0,
+            actions: args.targets.map((target: string, index: number) => ({
+              target,
+              value: args.values[index],
+              signature: args.signatures[index] || "call()",
+              calldata: args.calldatas[index],
+              summary: buildActionSummary(args.signatures[index], target)
+            })),
+            timeline: [{ label: "Created", timestamp: createdAt, complete: true, note: "ProposalCreated event loaded from the governor.", icon: "plus", actor: args.proposer }],
+            voters: stats ? stats.voteList : [],
+            loadStatus: { isPartial: false, message: "Client synced.", estimate: "" }
+          } as Proposal);
+        }
 
         newProposals.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
         
