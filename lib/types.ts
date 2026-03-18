@@ -82,6 +82,7 @@ export interface Proposal {
   queueTxHash?: `0x${string}`;
   voters?: Vote[];
   loadStatus?: LoadStatus;
+  meetsQuorum?: boolean;
 }
 
 export interface DaoStats {
@@ -105,6 +106,13 @@ export interface DaoContracts {
   timelock?: string;
 }
 
+export interface DaoParameters {
+  proposalThreshold?: string;
+  quorumNeeded?: string;
+  proposalDelay?: string;
+  votingPeriod?: string;
+}
+
 export interface DaoConfig {
   slug: string;
   name: string;
@@ -123,6 +131,7 @@ export interface DaoConfig {
   contracts: DaoContracts;
   links: DaoLinks;
   stats: DaoStats;
+  parameters?: DaoParameters;
   delegates: Array<{
     address: string;
     ens?: string;

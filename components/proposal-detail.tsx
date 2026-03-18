@@ -12,6 +12,7 @@ import { VoterList } from "@/components/voter-list";
 import { VoteOnchainButton } from "@/components/vote-onchain-button";
 import { formatDate, renderMarkdownBasic } from "@/lib/format";
 import { DaoConfig, Proposal } from "@/lib/types";
+import { StatusPill } from "./status-pill";
 
 export function ProposalDetail({
   dao,
@@ -36,9 +37,7 @@ export function ProposalDetail({
           <span className="breadcrumb-separator">/</span>
           <span className="breadcrumb-current">Proposal</span>
         </div>
-        <span className="status-pill" data-status={proposal.state}>
-          {proposal.state}
-        </span>
+        <StatusPill proposal={proposal} />
       </div>
 
       <section className="section">

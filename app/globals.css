@@ -137,6 +137,35 @@ select {
   box-shadow: var(--shadow);
 }
 
+.brand-logo-tslo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  color: var(--ink);
+}
+
+.brand-dao-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid var(--line);
+  font-weight: 700;
+  color: var(--ink);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+}
+
+.dao-logo-img {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  object-fit: contain;
+}
+
 .nav-links {
   display: flex;
   gap: 18px;
@@ -410,6 +439,11 @@ select {
   color: var(--danger);
 }
 
+.status-pill[data-status="expired_quorum"] {
+  background: rgba(148, 163, 184, 0.2);
+  color: #475569;
+}
+
 .status-pill[data-status="pending"] {
   background: rgba(100, 116, 139, 0.14);
   color: #334155;
@@ -497,6 +531,10 @@ select {
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
+}
+
+.address-display-row:hover .address-copy-icon {
+  opacity: 1 !important;
 }
 
 .address-display-value {
@@ -1444,6 +1482,110 @@ select {
   color: var(--ink);
 }
 
+.modal-body {
+  margin-top: 16px;
+}
+
+.modal-section {
+  padding: 16px;
+  background: var(--paper);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  margin-bottom: 16px;
+}
+
+.modal-section-title {
+  display: flex;
+  align-items: center;
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0 0 16px 0;
+  color: var(--ink);
+}
+
+.modal-parameter-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.modal-parameter-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-parameter-label {
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.modal-parameter-value {
+  color: var(--ink);
+  font-weight: 500;
+  font-size: 0.95rem;
+}
+
+.modal-parameter-note {
+  margin-top: 24px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.modal-parameter-note a {
+  color: var(--ink);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.modal-chain-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(15, 23, 42, 0.04);
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.modal-contracts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.modal-contract-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.modal-contract-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  width: fit-content;
+  background: rgba(15, 23, 42, 0.02);
+}
+
+.modal-footer-note {
+  margin-top: 24px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.85rem;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
 @media (max-width: 960px) {
   .hero-grid,
   .grid-2,
@@ -1460,12 +1602,21 @@ select {
   }
 
   .nav {
-    flex-direction: column;
-    align-items: flex-start;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .nav-links {
+    order: 3;
+    width: 100%;
+    justify-content: center;
+    padding-top: 8px;
+    border-top: 1px solid var(--line);
   }
 
   .wallet-inline {
-    width: 100%;
+    width: auto;
   }
 
   .address-display-row {

@@ -59,6 +59,27 @@ const governorReadAbi = [
     outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
     stateMutability: "view",
     type: "function"
+  },
+  {
+    inputs: [],
+    name: "proposalThreshold",
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function"
+  },
+  {
+    inputs: [],
+    name: "votingDelay",
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function"
+  },
+  {
+    inputs: [],
+    name: "votingPeriod",
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function"
   }
 ] as const;
 
@@ -296,6 +317,7 @@ function buildPartialProposal(entry: ProposalLogEntry): Proposal {
       }
     ],
     voters: [],
+    meetsQuorum: false,
     loadStatus: {
       isPartial: true,
       message: "Proposal list data is loaded, but vote tallies, quorum, and final outcome are still pending a deeper RPC read.",
@@ -351,6 +373,45 @@ function buildDaoLoadEstimate(proposalCount: number, startBlock: number, latestB
   return `Scanned ${blockRange.toLocaleString()} blocks. Found ${proposalCount} proposals. Hydrating each takes ~7 RPC reads (${totalDetailReads} total).`;
 }
 
+async function loadDaoParameters(client: ReturnType<typeof getClient>, dao: DaoConfig) {
+  try {
+    const latestBlock = await client.getBlockNumber();
+    const [threshold, quorum, delay, period] = await Promise.allSettled([
+      client.readContract({
+        address: dao.contracts.governor as `0x${string}`,
+        abi: governorReadAbi,
+        functionName: "proposalThreshold"
+      }),
+      // Use latestBlock - 1 to get the current quorum requirement instead of block 0
+      client.readContract({
+        address: dao.contracts.governor as `0x${string}`,
+        abi: governorReadAbi,
+        functionName: "quorum",
+        args: [latestBlock - BigInt(1)]
+      }),
+      client.readContract({
+        address: dao.contracts.governor as `0x${string}`,
+        abi: governorReadAbi,
+        functionName: "votingDelay"
+      }),
+      client.readContract({
+        address: dao.contracts.governor as `0x${string}`,
+        abi: governorReadAbi,
+        functionName: "votingPeriod"
+      })
+    ]);
+
+    return {
+      proposalThreshold: threshold.status === "fulfilled" ? formatUnits(threshold.value, 18) : undefined,
+      quorumNeeded: quorum.status === "fulfilled" ? formatUnits(quorum.value, 18) : undefined,
+      proposalDelay: delay.status === "fulfilled" ? delay.value.toString() : undefined,
+      votingPeriod: period.status === "fulfilled" ? period.value.toString() : undefined
+    };
+  } catch (e) {
+    return undefined;
+  }
+}
+
 async function loadProposalEntries(dao: DaoConfig, configStartBlock?: number): Promise<ScanResult> {
   const client = getClient(dao.chainId);
   let latestBlock = BigInt(0);
@@ -384,6 +445,9 @@ async function loadProposalDetail(dao: DaoConfig, entry: ProposalLogEntry) {
     return next;
   }
 
+  const latestBlock = await client.getBlockNumber().catch(() => BigInt(0));
+  const timepoint = entry.voteStart >= latestBlock && latestBlock > BigInt(0) ? latestBlock - BigInt(1) : entry.voteStart;
+
   const [snapshotBlock, deadlineBlock, rawState, votesTuple, quorumValue] = await Promise.all([
     client.readContract({
       address: dao.contracts.governor as `0x${string}`,
@@ -413,8 +477,8 @@ async function loadProposalDetail(dao: DaoConfig, entry: ProposalLogEntry) {
       address: dao.contracts.governor as `0x${string}`,
       abi: governorReadAbi,
       functionName: "quorum",
-      args: [entry.voteStart]
-    })
+      args: [timepoint]
+    }).catch(() => BigInt(0)) // fallback to 0 if it fails for some reason
   ]);
 
   const [againstVotes, forVotes, abstainVotes] = votesTuple;
@@ -483,7 +547,7 @@ async function loadProposalDetail(dao: DaoConfig, entry: ProposalLogEntry) {
     })
   );
 
-  const meetsQuorum = quorumValue > BigInt(0) && totalVotes >= quorumValue;
+  const meetsQuorum = quorumValue > BigInt(0) && (forVotes + abstainVotes) >= quorumValue;
   const passed = proposalState === "succeeded" || proposalState === "queued" || proposalState === "executed";
   const timeline: TimelineStep[] = [
     {
@@ -582,11 +646,12 @@ async function loadProposalDetail(dao: DaoConfig, entry: ProposalLogEntry) {
     timeline,
     executionTxHash: executionRecord.executionTxHash,
     queueTxHash: executionRecord.queueTxHash,
-    voters: voters as any
+    voters: voters as any,
+    meetsQuorum
   } satisfies Proposal;
 }
 
-const getCachedScanResult = cache(async (slug: string) => {
+  const getCachedScanResult = cache(async (slug: string) => {
   const dao = getConfiguredDaoBySlug(slug);
 
   if (!dao) {
@@ -597,6 +662,17 @@ const getCachedScanResult = cache(async (slug: string) => {
   return loadProposalEntries(dao, configuredInput?.startBlock);
 });
 
+const getCachedDaoParameters = cache(async (slug: string) => {
+  const dao = getConfiguredDaoBySlug(slug);
+
+  if (!dao) {
+    return undefined;
+  }
+
+  const client = getClient(dao.chainId);
+  return loadDaoParameters(client, dao);
+});
+
 export const getLiveDaoBySlug = cache(async (slug: string) => {
   const dao = getConfiguredDaoBySlug(slug);
 
@@ -605,7 +681,10 @@ export const getLiveDaoBySlug = cache(async (slug: string) => {
   }
 
   try {
-    const scanResult = await getCachedScanResult(slug);
+    const [scanResult, parameters] = await Promise.all([
+      getCachedScanResult(slug),
+      getCachedDaoParameters(slug)
+    ]);
     const entries = scanResult?.entries ?? [];
     const proposals = entries.map(buildPartialProposal);
     const startBlock = scanResult?.startBlock ?? 0;
@@ -618,6 +697,7 @@ export const getLiveDaoBySlug = cache(async (slug: string) => {
       proposals,
       activity: buildActivity(proposals),
       stats: buildDaoStats(dao, proposals),
+      parameters,
       loadStatus: {
         isPartial: true,
         message:
@@ -642,6 +722,7 @@ export const getLiveDaoBySlug = cache(async (slug: string) => {
       activity: [],
       proposals: [],
       stats: buildDaoStats(dao, []),
+      parameters: undefined,
       loadStatus: {
         isPartial: true,
         message: `RPC scan incomplete: ${message}`,

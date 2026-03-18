@@ -243,17 +243,26 @@ export function AddressDisplay({
           <Jazzicon address={address} size={32} />
         )}
         <div className="address-display-content">
-          <div className="address-display-row">
-            <code className="address-display-value" title={address}>
-              {ensProfile.name ?? displayValue}
-            </code>
-            <button
-              type="button"
-              className="button-secondary address-copy-button"
+          <div className="address-display-row" style={{ position: "relative", alignItems: "center" }}>
+            <code 
+              className="address-display-value" 
+              title={address} 
               onClick={handleCopy}
+              style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: "8px" }}
             >
-              {copied ? "Copied" : "Copy"}
-            </button>
+              {ensProfile.name ?? displayValue}
+              <span 
+                className="address-copy-icon" 
+                style={{ opacity: copied ? 1 : 0, transition: "opacity 160ms ease", color: copied ? "#10b981" : "var(--muted)", display: "flex" }}
+                title="Copy address"
+              >
+                {copied ? (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                ) : (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                )}
+              </span>
+            </code>
           </div>
           {explorers.length > 0 ? (
             <div className="address-display-links">

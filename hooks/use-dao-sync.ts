@@ -118,7 +118,8 @@ async function buildProposalsList(
   extendedLogs: any[], 
   latestBlock: bigint, 
   client: any,
-  blockTimestampsCache: Record<string, string>
+  blockTimestampsCache: Record<string, string>,
+  dao: DaoConfig
 ) {
   let isDirty = false;
   const blockCache = new Map<string, Promise<bigint>>();
@@ -268,7 +269,7 @@ async function buildProposalsList(
       votingEndsAt: voteEndAt || createdAt,
       description: args.description,
       turnout: 0,
-      votes: { for: forVotes, against: againstVotes, abstain: abstainVotes, quorum: 0 },
+      votes: { for: forVotes, against: againstVotes, abstain: abstainVotes, quorum: dao.parameters?.quorumNeeded ? Number(dao.parameters.quorumNeeded) : 0 },
       totalVotes,
       voterCount: stats ? stats.voters.size : 0,
       actions: args.targets.map((target: string, index: number) => ({
@@ -323,7 +324,7 @@ export function useDaoSync(dao: DaoConfig, initialStartBlock: number) {
         if (cachedData.computedProposals && mounted) {
            setProposals(cachedData.computedProposals);
         } else if (cachedData.proposalLogs.length > 0 && mounted) {
-           const { proposals: cachedProposals, isDirty } = await buildProposalsList(cachedData.proposalLogs, cachedData.voteLogs, cachedData.queuedLogs, cachedData.executedLogs, cachedData.extendedLogs, latestBlock, client, cachedData.blockTimestampsCache);
+           const { proposals: cachedProposals, isDirty } = await buildProposalsList(cachedData.proposalLogs, cachedData.voteLogs, cachedData.queuedLogs, cachedData.executedLogs, cachedData.extendedLogs, latestBlock, client, cachedData.blockTimestampsCache, dao);
            if (mounted) setProposals(cachedProposals);
            cachedData.computedProposals = cachedProposals;
            await set(cacheKey, cachedData);
@@ -536,7 +537,7 @@ export function useDaoSync(dao: DaoConfig, initialStartBlock: number) {
           // **INCREMENTAL UI UPDATE**: Update the proposals state incrementally during the sync loop
           // instead of waiting until the entire blockchain is scanned.
           if (cachedData.proposalLogs.length > 0 && mounted) {
-             const { proposals: currentProposals, isDirty } = await buildProposalsList(cachedData.proposalLogs, cachedData.voteLogs, cachedData.queuedLogs, cachedData.executedLogs, cachedData.extendedLogs, latestBlock, client, cachedData.blockTimestampsCache);
+             const { proposals: currentProposals, isDirty } = await buildProposalsList(cachedData.proposalLogs, cachedData.voteLogs, cachedData.queuedLogs, cachedData.executedLogs, cachedData.extendedLogs, latestBlock, client, cachedData.blockTimestampsCache, dao);
              if (mounted) setProposals(currentProposals);
              cachedData.computedProposals = currentProposals;
              await set(cacheKey, cachedData);
@@ -546,7 +547,7 @@ export function useDaoSync(dao: DaoConfig, initialStartBlock: number) {
         if (!mounted) return;
 
         // Build proposals at the very end to ensure it's fully synced
-        const { proposals: finalProposals, isDirty } = await buildProposalsList(cachedData.proposalLogs, cachedData.voteLogs, cachedData.queuedLogs, cachedData.executedLogs, cachedData.extendedLogs, latestBlock, client, cachedData.blockTimestampsCache);
+        const { proposals: finalProposals, isDirty } = await buildProposalsList(cachedData.proposalLogs, cachedData.voteLogs, cachedData.queuedLogs, cachedData.executedLogs, cachedData.extendedLogs, latestBlock, client, cachedData.blockTimestampsCache, dao);
         cachedData.computedProposals = finalProposals;
         await set(cacheKey, cachedData);
         

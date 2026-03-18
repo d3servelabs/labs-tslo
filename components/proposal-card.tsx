@@ -4,6 +4,7 @@ import Link from "next/link";
 import { LoadStatusBanner } from "@/components/load-status-banner";
 import { formatCompactNumber, formatDate, formatNumber, formatPercent } from "@/lib/format";
 import { DaoConfig, Proposal } from "@/lib/types";
+import { StatusPill } from "./status-pill";
 
 export function ProposalCard({ dao, proposal }: { dao: DaoConfig; proposal: Proposal }) {
   const href = (
@@ -11,9 +12,11 @@ export function ProposalCard({ dao, proposal }: { dao: DaoConfig; proposal: Prop
   ) as Route;
   const totalVotes = proposal.totalVotes ?? proposal.votes.for + proposal.votes.against + proposal.votes.abstain;
   const voterCount = proposal.voterCount ?? proposal.voters?.length ?? 0;
+  const quorum = proposal.votes.quorum;
+  const denominator = Math.max(totalVotes, quorum);
 
   function pct(value: number) {
-    return totalVotes === 0 ? "0%" : `${(value / totalVotes) * 100}%`;
+    return denominator === 0 ? "0%" : `${(value / denominator) * 100}%`;
   }
 
   return (
@@ -22,15 +25,12 @@ export function ProposalCard({ dao, proposal }: { dao: DaoConfig; proposal: Prop
         <div className="proposal-card-main">
           <div className="row-between">
             <h3 className="card-title">{proposal.title}</h3>
-            <span className="status-pill" data-status={proposal.state}>
-              {proposal.state}
-            </span>
+            <StatusPill proposal={proposal} />
           </div>
           <div className="pill-row">
             <span className="metric-pill">
               {proposal.loadStatus?.isPartial ? "End date pending" : `Ends ${formatDate(proposal.votingEndsAt)}`}
             </span>
-            <span className="metric-pill">{formatPercent(proposal.turnout)} turnout</span>
           </div>
         </div>
 
@@ -40,10 +40,24 @@ export function ProposalCard({ dao, proposal }: { dao: DaoConfig; proposal: Prop
             <span className="vote-against-text">{formatCompactNumber(proposal.votes.against)}</span>
             <span className="vote-abstain-text">{formatCompactNumber(proposal.votes.abstain)}</span>
           </div>
-          <div className="compact-progress">
+          <div className="compact-progress" style={{ position: "relative", overflow: "visible", background: "transparent" }}>
             <span className="vote-for" style={{ width: pct(proposal.votes.for) }} />
             <span className="vote-against" style={{ width: pct(proposal.votes.against) }} />
             <span className="vote-abstain" style={{ width: pct(proposal.votes.abstain) }} />
+            {quorum > 0 && (
+              <div 
+                className="quorum-line" 
+                style={{ 
+                  position: "absolute", 
+                  top: "-2px", 
+                  bottom: "-2px", 
+                  left: pct(quorum), 
+                  width: "2px", 
+                  background: "var(--ink)", 
+                  zIndex: 2
+                }} 
+              />
+            )}
           </div>
           <div className="proposal-card-vote-meta">
             <span>{formatNumber(voterCount)} addresses</span>

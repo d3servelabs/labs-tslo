@@ -1,3 +1,4 @@
+import { compressAddressERC8117 } from "@ercref/erc8117";
 import { marked } from "marked";
 
 const markdownRenderer = new marked.Renderer();
@@ -55,7 +56,11 @@ export function formatDate(value: string) {
 }
 
 export function formatAddress(value: string) {
-  return `${value.slice(0, 6)}...${value.slice(-4)}`;
+  try {
+    return compressAddressERC8117(value, "unicode", true);
+  } catch (err) {
+    return `${value.slice(0, 6)}...${value.slice(-4)}`;
+  }
 }
 
 export function extractAbstract(description: string): string {

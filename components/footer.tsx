@@ -11,7 +11,7 @@ export async function Footer() {
         <a href="https://tslo.labs.namefi.io" target="_blank" rel="noreferrer">
           TSLO (Tally Shall Live On)
         </a>{" "}
-        , built and open sourced{" "}
+        is an Open-Source replacement for Tally prioritizing self-hosting, built and open sourced{" "}
         <a href="https://github.com/d3servelabs/labs-tslo" target="_blank" rel="noreferrer">
           on GitHub
         </a>{" "}

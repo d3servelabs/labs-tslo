@@ -5,20 +5,44 @@ import { getSiteMode } from "@/lib/config";
 import { loadPrimaryDao } from "@/lib/data-adapter";
 
 import { HeaderSyncDot } from "@/components/header-sync-dot";
+import { TsloLogo } from "@/components/tslo-logo";
 
 export async function Header() {
   const mode = getSiteMode();
   const primaryDao = mode === "setup" ? undefined : await loadPrimaryDao();
 
+  let daoHostname = "ens.domains";
+  if (primaryDao?.links?.website) {
+    try {
+      daoHostname = new URL(primaryDao.links.website).hostname;
+    } catch {
+      // Ignore
+    }
+  }
+
   return (
     <header className="nav shell">
       <div className="nav-brand-area">
         <Link href="/" className="brand">
-          <span className="brand-mark">
-            {primaryDao?.shortName.slice(0, 2).toUpperCase() ?? "TS"}
-          </span>
-          <span>{primaryDao?.name ?? "TSLO"}</span>
+          <div className="brand-logo-tslo">
+            <TsloLogo />
+          </div>
+          {!primaryDao && <span>TSLO</span>}
         </Link>
+
+        {primaryDao && (
+          <div className="brand-dao-pill">
+            <img 
+              src={`https://s2.googleusercontent.com/s2/favicons?domain=${daoHostname}&sz=128`} 
+              alt={`${primaryDao.name} logo`} 
+              className="dao-logo-img" 
+              width={20} 
+              height={20} 
+            />
+            <span>{primaryDao.shortName}</span>
+          </div>
+        )}
+
         <HeaderSyncDot />
       </div>
       <nav className="nav-links">
@@ -26,7 +50,6 @@ export async function Header() {
         <Link href={mode === "single" ? "/#proposals" : "/#directory"}>
           {mode === "single" ? "Proposals" : "Directory"}
         </Link>
-        <Link href="/#api">API</Link>
       </nav>
       <WalletButton chainId={primaryDao?.chainId} />
     </header>

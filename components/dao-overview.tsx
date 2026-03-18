@@ -8,6 +8,7 @@ import { CreateProposalButton } from "@/components/create-proposal-button";
 import { LoadStatusBanner } from "@/components/load-status-banner";
 import { ProposalCard } from "@/components/proposal-card";
 import { ProposalCardSkeleton } from "@/components/proposal-card-skeleton";
+import { ContractsModal } from "@/components/contracts-modal";
 import { formatAddress, formatNumber, formatPercent } from "@/lib/format";
 import { DataAdapterKind } from "@/lib/data-adapter";
 import { DaoConfig } from "@/lib/types";
@@ -31,119 +32,58 @@ export function DaoOverview({
   const visibleProposals = displayProposals.slice(0, visibleCount);
   const hasMore = visibleCount < displayProposals.length;
 
+  const totalProps = dao.stats.totalProposals || displayProposals.length;
+  const activeProps = displayProposals.filter((p) => p.state === "active").length;
+  const passedProps = displayProposals.filter((p) => p.state === "succeeded" || p.state === "executed" || p.state === "queued").length;
+  const rejectedProps = displayProposals.filter((p) => p.state === "defeated" && p.meetsQuorum).length;
+  const expiredQuorumProps = displayProposals.filter((p) => p.state === "defeated" && !p.meetsQuorum).length;
+
+  const [isContractsModalOpen, setIsContractsModalOpen] = useState(false);
+
   return (
     <main className="shell">
       <section className="hero">
-        <div className="hero-grid">
+        <div className="hero-grid" style={{ gridTemplateColumns: "1fr" }}>
           <div>
             <div className="eyebrow">
               {dao.shortName} • {dao.chainName}
             </div>
             <h1>{dao.name}</h1>
             <p className="lede">{dao.description}</p>
-            <div className="pill-row">
+            <div className="pill-row" style={{ marginBottom: "20px" }}>
               <span className="metric-pill">{dao.governanceType}</span>
               <span className="metric-pill">{dao.governanceVersion}</span>
-              <span className="metric-pill">Chain ID {dao.chainId}</span>
-              <span className="metric-pill">Adapter {adapterKind}</span>
             </div>
-          </div>
-          <div className="panel">
-            <div className="eyebrow">Contracts</div>
-            <div className="activity-list">
-              <div className="activity-item">
-                <strong>Governor</strong>
-                <AddressDisplay chainId={dao.chainId} address={dao.contracts.governor} mode="full" />
-              </div>
-              <div className="activity-item">
-                <strong>Token</strong>
-                <AddressDisplay chainId={dao.chainId} address={dao.contracts.token} mode="full" />
-              </div>
-              {dao.contracts.timelock ? (
-                <div className="activity-item">
-                  <strong>Timelock</strong>
-                  <AddressDisplay chainId={dao.chainId} address={dao.contracts.timelock} mode="full" />
-                </div>
-              ) : null}
+            <div className="activity-list" style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+              {dao.links.website && (
+                <a className="button-secondary" href={dao.links.website} target="_blank" rel="noreferrer" title="Official website" style={{ padding: "8px 12px" }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+                </a>
+              )}
+              {dao.links.forum && (
+                <a className="button-secondary" href={dao.links.forum} target="_blank" rel="noreferrer" title="Forum" style={{ padding: "8px 12px" }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                </a>
+              )}
+              {dao.links.docs && (
+                <a className="button-secondary" href={dao.links.docs} target="_blank" rel="noreferrer" title="Docs" style={{ padding: "8px 12px" }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
+                </a>
+              )}
+              {dao.links.treasury && (
+                <a className="button-secondary" href={dao.links.treasury} target="_blank" rel="noreferrer" title="Treasury" style={{ padding: "8px 12px" }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>
+                </a>
+              )}
+              <button 
+                className="button-secondary" 
+                onClick={() => setIsContractsModalOpen(true)} 
+                title="Contracts and parameters" 
+                style={{ padding: "8px 12px" }}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+              </button>
             </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="section grid-3">
-        <div className="panel">
-          <div className="metric-label">Total proposals</div>
-          <div className="metric-value">{formatNumber(dao.stats.totalProposals)}</div>
-        </div>
-        <div className="panel">
-          <div className="metric-label">Delegates</div>
-          <div className="metric-value">{formatNumber(dao.stats.delegates)}</div>
-        </div>
-        <div className="panel">
-          <div className="metric-label">Average turnout</div>
-          <div className="metric-value">{formatPercent(dao.stats.turnoutAverage)}</div>
-        </div>
-      </section>
-
-      <section className="section grid-2">
-        <div className="panel">
-          <div className="eyebrow">Links</div>
-          <div className="activity-list">
-            <a className="activity-item" href={dao.links.website} target="_blank" rel="noreferrer">
-              Official website
-            </a>
-            <a className="activity-item" href={dao.links.forum} target="_blank" rel="noreferrer">
-              Forum
-            </a>
-            <a className="activity-item" href={dao.links.docs} target="_blank" rel="noreferrer">
-              Docs
-            </a>
-            <a className="activity-item" href={dao.links.treasury} target="_blank" rel="noreferrer">
-              Treasury
-            </a>
-          </div>
-        </div>
-        <div className="panel">
-          <div className="eyebrow">Recent activity</div>
-          <div className="activity-list">
-            {dao.activity.length > 0 ? (
-              dao.activity.map((item) => (
-                <div key={`${item.label}-${item.timestamp}`} className="activity-item">
-                  <div className="row-between">
-                    <strong>{item.label}</strong>
-                    <span>{new Date(item.timestamp).toLocaleDateString("en-US")}</span>
-                  </div>
-                  <div className="footnote">{item.detail}</div>
-                </div>
-              ))
-            ) : (
-              <div className="empty-state">No indexed governance activity yet.</div>
-            )}
-          </div>
-        </div>
-      </section>
-
-      <section className="section grid-2">
-        <div className="panel" style={{ gridColumn: "1 / -1" }}>
-          <div className="eyebrow">Active delegates</div>
-          <div className="activity-list">
-            {dao.delegates.length > 0 ? (
-              dao.delegates.map((delegate) => (
-                <div key={delegate.address} className="activity-item">
-                  <div className="row-between">
-                    <strong>{delegate.ens ?? formatAddress(delegate.address)}</strong>
-                    <span>{formatNumber(delegate.votingPower)} votes</span>
-                  </div>
-                  <div className="footnote">{delegate.statement}</div>
-                </div>
-              ))
-            ) : (
-              <div className="empty-state">
-                {adapterKind === "live"
-                  ? "Delegate data is not loaded yet. TSLO is currently reading proposal history first; delegate data can be added in a later live pass."
-                  : "Delegate data is not available from the current adapter yet."}
-              </div>
-            )}
           </div>
         </div>
       </section>
@@ -152,13 +92,12 @@ export function DaoOverview({
         <div className="row-between">
           <div>
             <div className="eyebrow">Proposals</div>
-            <h2 className="section-title">Proposal history</h2>
+            <h2 className="section-title">
+              Proposal history <span style={{ fontSize: "1rem", color: "var(--muted)", fontWeight: "normal" }}>({activeProps} active, {passedProps} passed, {rejectedProps} rejected, {expiredQuorumProps} expired without a quorum, {totalProps} total)</span>
+            </h2>
           </div>
           <div className="cta-row">
             <CreateProposalButton chainId={dao.chainId} governorAddress={dao.contracts.governor} />
-            <a href={apiBasePath} className="button-secondary">
-              DAO JSON
-            </a>
           </div>
         </div>
         <div className="proposal-list">
@@ -174,7 +113,7 @@ export function DaoOverview({
                 {hasMore && (
                   <button
                     className="button-secondary"
-                    onClick={() => setVisibleCount((prev) => prev + 10)}
+                    onClick={() => setVisibleCount(displayProposals.length)}
                   >
                     Show more
                   </button>
@@ -198,6 +137,12 @@ export function DaoOverview({
           )}
         </div>
       </section>
+
+      <ContractsModal 
+        dao={dao} 
+        isOpen={isContractsModalOpen} 
+        onClose={() => setIsContractsModalOpen(false)} 
+      />
     </main>
   );
 }

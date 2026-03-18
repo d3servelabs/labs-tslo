@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@ercref/erc8117": "^0.1.1",
     "@metamask/jazzicon": "^2.0.0",
     "idb-keyval": "^6.2.2",
     "marked": "^17.0.4",
