@@ -160,7 +160,12 @@ export function useDaoSync(dao: DaoConfig, initialStartBlock: number) {
         const client = getClient(dao.chainId);
         const cacheKey = `tslo_logs_${dao.chainId}_${dao.contracts.governor.toLowerCase()}`;
         
-        let cachedData = await get(cacheKey);
+        let cachedData: any = null;
+        try {
+          cachedData = await get(cacheKey);
+        } catch (err) {
+          console.warn("Failed to read from IndexedDB, syncing without persistent cache.", err);
+        }
         
         // Migration from lastBlock -> syncedRanges
         if (cachedData && cachedData.lastBlock && !cachedData.syncedRanges) {
@@ -288,7 +293,11 @@ export function useDaoSync(dao: DaoConfig, initialStartBlock: number) {
               voteLogs: [...cachedData.voteLogs, ...vLogsMapped]
             };
 
-            await set(cacheKey, cachedData);
+            try {
+              await set(cacheKey, cachedData);
+            } catch (err) {
+              console.warn("Failed to write to IndexedDB, cache will not persist across reloads.", err);
+            }
             
             if (mounted) {
               const currentScanned = calculateScannedBlocks(mergedRanges, targetStartBlock, latestBlock);

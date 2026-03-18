@@ -28,7 +28,13 @@ export function FooterSyncProgress({ primaryDao }: { primaryDao?: DaoConfig }) {
       try {
         const client = getClient(primaryDao!.chainId);
         const cacheKey = `tslo_logs_${primaryDao!.chainId}_${primaryDao!.contracts.governor.toLowerCase()}`;
-        const cachedData = await get(cacheKey);
+        
+        let cachedData: any = null;
+        try {
+          cachedData = await get(cacheKey);
+        } catch (err) {
+          // ignore cache read failure
+        }
         
         const latestBlock = Number(await client.getBlockNumber());
         const startBlock = primaryDao!.loadStatus?.startBlock ?? 0;
