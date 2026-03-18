@@ -230,13 +230,36 @@ async function buildProposalsList(
        voteEndAt = formatDate(await getBlockTimestamp(voteEndStr));
        timeline.push({ label: "Voting closes", timestamp: voteEndAt, complete: true, note: `Deadline block ${voteEndStr}.`, icon: "stop" });
        
-       const isPassed = forVotes > againstVotes && totalVotes > 0;
+       const quorum = dao.parameters?.quorumNeeded ? Number(dao.parameters.quorumNeeded) : 0;
+       const meetsQuorum = totalVotes >= quorum;
+       const majorityReached = forVotes > againstVotes && totalVotes > 0;
+       
+       const isPassed = majorityReached && meetsQuorum;
+       
+       let finalLabel = "";
+       let finalNote = "";
+       let finalIcon = "";
+       
+       if (isPassed) {
+         finalLabel = "Passed";
+         finalNote = "Reached quorum and majority.";
+         finalIcon = "check";
+       } else if (!meetsQuorum) {
+         finalLabel = "Expired without a Quorum";
+         finalNote = "Did not meet quorum requirements.";
+         finalIcon = "expired"; // grey icon
+       } else {
+         finalLabel = "Rejected";
+         finalNote = "Did not reach majority.";
+         finalIcon = "defeat"; // red cross
+       }
+
        timeline.push({
-         label: isPassed ? "Vote ended (For > Against)" : "Vote ended (Against >= For)",
+         label: finalLabel,
          timestamp: voteEndAt,
          complete: true,
-         note: isPassed ? "Majority reached." : "Did not reach majority or defeated.",
-         icon: isPassed ? "success" : "defeat"
+         note: finalNote,
+         icon: finalIcon
        });
        
        if (!executedLog && !queuedLog && derivedState === "expired") {

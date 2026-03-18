@@ -26,7 +26,7 @@ export function DaoOverview({
   const initialStartBlock = dao.loadStatus?.startBlock ?? 0;
   const { proposals, isSyncing, progress } = useDaoSync(dao, initialStartBlock);
   
-  const [visibleCount, setVisibleCount] = useState(10);
+  const [visibleCount, setVisibleCount] = useState(5);
   
   const displayProposals = proposals.length > 0 ? proposals : dao.proposals;
   const visibleProposals = displayProposals.slice(0, visibleCount);
@@ -118,10 +118,10 @@ export function DaoOverview({
                     Show more
                   </button>
                 )}
-                {visibleCount > 10 && (
+                {visibleCount > 5 && (
                   <button
                     className="button-secondary"
-                    onClick={() => setVisibleCount(10)}
+                    onClick={() => setVisibleCount(5)}
                   >
                     Show less
                   </button>

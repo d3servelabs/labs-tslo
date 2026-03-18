@@ -206,9 +206,12 @@ export function CreateProposalButton({
   ) : null;
 
   return (
-    <div className="create-proposal-wrap">
-      <button type="button" className="button" onClick={() => setOpen(true)}>
+    <div className="create-proposal-wrap" style={{ position: "relative" }}>
+      <button type="button" className="button" disabled title="coming soon and disabled for now" style={{ position: "relative", paddingRight: "56px" }}>
         Create Proposal
+        <span style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "rgba(255, 255, 255, 0.2)", padding: "2px 6px", borderRadius: "999px", fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+          Soon
+        </span>
       </button>
       {mounted && createPortal(modalContent, document.body)}
       {status && !open ? <p className="footnote">{status}</p> : null}

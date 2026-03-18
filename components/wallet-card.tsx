@@ -32,7 +32,10 @@ export function WalletCard() {
   }
 
   return (
-    <div className="panel wallet-card">
+    <div className="panel wallet-card" style={{ position: "relative" }}>
+      <div style={{ position: "absolute", top: 16, right: 16, background: "rgba(15, 23, 42, 0.04)", padding: "4px 8px", borderRadius: "999px", fontSize: "0.75rem", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+        Soon
+      </div>
       <div className="eyebrow">Write Flow Readiness</div>
       <h3 className="card-title">Wallet adapter stub</h3>
       <p className="muted">
@@ -42,11 +45,10 @@ export function WalletCard() {
       </p>
       {account ? <div className="wallet-badge">{formatAddress(account)}</div> : null}
       <div className="action-row">
-        <button className="button" type="button" onClick={connectWallet}>
-          {account ? "Reconnect wallet" : "Connect wallet"}
+        <button className="button" type="button" disabled title="coming soon and disabled for now">
+          Connect wallet
         </button>
       </div>
-      <div className="footnote">{status}</div>
     </div>
   );
 }

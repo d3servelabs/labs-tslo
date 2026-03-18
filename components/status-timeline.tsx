@@ -19,6 +19,7 @@ export function StatusTimeline({ timeline, chainId }: { timeline: TimelineStep[]
           </svg>
         );
       case "stop":
+      case "expired":
         return (
           <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
             <rect x="6" y="6" width="12" height="12"></rect>
@@ -29,6 +30,12 @@ export function StatusTimeline({ timeline, chainId }: { timeline: TimelineStep[]
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 2v20"></path>
             <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+          </svg>
+        );
+      case "check":
+        return (
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
           </svg>
         );
       case "success":

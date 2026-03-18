@@ -133,9 +133,13 @@ export function FooterSyncProgress({ primaryDao }: { primaryDao?: DaoConfig }) {
 
   let percentage = 0;
   if (hasSyncInfo && totalBlocks > 0) {
-    // Only show 100% if we are completely done. Otherwise, if we're very close, show 99%.
+    // Assuming average block time of ~12 seconds for Ethereum
+    // 6 minutes = 360 seconds = ~30 blocks
+    const BLOCKS_IN_6_MINS = 30;
+    
+    // Only show 100% if we are completely done or within the last 6 minutes of blocks.
     const rawPercentage = (scannedBlocks / totalBlocks) * 100;
-    if (scannedBlocks >= totalBlocks) {
+    if (scannedBlocks >= totalBlocks || (totalBlocks - scannedBlocks <= BLOCKS_IN_6_MINS)) {
       percentage = 100;
     } else {
       percentage = Math.floor(rawPercentage);

@@ -48,10 +48,12 @@ export function WalletButton({ chainId }: { chainId?: number }) {
 
   return (
     <div className="wallet-inline">
-      <button className="button-secondary" type="button" onClick={connectWallet}>
-        {account ? formatAddress(account) : "Connect wallet"}
+      <button className="button-secondary" type="button" disabled title="coming soon and disabled for now" style={{ position: "relative", paddingRight: "56px" }}>
+        Connect wallet
+        <span style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "rgba(15, 23, 42, 0.04)", padding: "2px 6px", borderRadius: "999px", fontSize: "0.7rem", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+          Soon
+        </span>
       </button>
-      {status ? <span className="wallet-inline-note">{status}</span> : null}
     </div>
   );
 }

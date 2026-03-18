@@ -3,14 +3,14 @@ import { marked } from "marked";
 
 const markdownRenderer = new marked.Renderer();
 
-markdownRenderer.link = ({ href, title, tokens, text: fallbackText }) => {
+markdownRenderer.link = function({ href, title, tokens, text: fallbackText }) {
   const safeHref = href ?? "#";
-  const text = tokens ? marked.parseInline(fallbackText || "") : fallbackText;
   const titleAttr = title ? ` title="${title}"` : "";
   const isExternal = /^https?:\/\//i.test(safeHref);
   const externalAttrs = isExternal ? ` target="_blank" rel="noreferrer"` : "";
+  const textContent = tokens ? this.parser.parseInline(tokens) : fallbackText;
 
-  return `<a href="${safeHref}"${titleAttr}${externalAttrs}>${text}</a>`;
+  return `<a href="${safeHref}"${titleAttr}${externalAttrs}>${textContent}</a>`;
 };
 
 markdownRenderer.image = ({ href, title, text }) => {

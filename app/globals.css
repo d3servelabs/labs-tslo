@@ -84,23 +84,32 @@ select {
   gap: 16px;
 }
 
-.sync-dot-container {
+.sync-status-indicator {
   display: flex;
   align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid var(--line);
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
 }
 
 .sync-dot {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
-  background-color: #10b981;
   position: relative;
 }
 
-.sync-dot::after {
+.sync-dot.real-time {
+  background-color: #10b981;
+}
+
+.sync-dot.real-time::after {
   content: "";
   position: absolute;
   top: 0;
@@ -109,7 +118,27 @@ select {
   height: 100%;
   border-radius: 50%;
   background-color: #10b981;
+  animation: pulse-ring 2.5s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+}
+
+.sync-dot.syncing {
+  background-color: #f59e0b; /* orange/yellow */
+}
+
+.sync-dot.syncing::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background-color: #f59e0b;
   animation: pulse-ring 1.5s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+}
+
+.sync-status-text {
+  letter-spacing: 0.02em;
 }
 
 @keyframes pulse-ring {
@@ -1168,6 +1197,22 @@ select {
 .status-timeline-icon.complete {
   border-color: var(--accent);
   color: var(--accent);
+}
+
+.status-timeline-icon.complete[data-icon="check"],
+.status-timeline-icon.complete[data-icon="success"] {
+  border-color: #10b981;
+  color: #10b981;
+}
+
+.status-timeline-icon.complete[data-icon="defeat"] {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.status-timeline-icon.complete[data-icon="expired"] {
+  border-color: var(--muted);
+  color: var(--muted);
 }
 
 .status-timeline-line {

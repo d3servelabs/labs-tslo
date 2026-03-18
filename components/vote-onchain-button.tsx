@@ -81,19 +81,23 @@ export function VoteOnchainButton({
   }
 
   return (
-    <div className="panel sidebar-panel vote-onchain-panel">
+    <div className="panel sidebar-panel vote-onchain-panel" style={{ position: "relative" }}>
+      <div style={{ position: "absolute", top: 16, right: 16, background: "rgba(15, 23, 42, 0.04)", padding: "4px 8px", borderRadius: "999px", fontSize: "0.75rem", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+        Soon
+      </div>
       <h3 className="sidebar-title">Vote</h3>
       <div className="vote-onchain-controls">
         <select
           className="search-input vote-onchain-select"
           value={support}
           onChange={(event) => setSupport(event.target.value as "1" | "0" | "2")}
+          disabled
         >
           <option value="1">For</option>
           <option value="0">Against</option>
           <option value="2">Abstain</option>
         </select>
-        <button type="button" className="button" onClick={voteOnchain} disabled={pending}>
+        <button type="button" className="button" onClick={voteOnchain} disabled title="coming soon and disabled for now">
           {pending ? "Submitting..." : "Vote onchain"}
         </button>
       </div>
