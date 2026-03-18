@@ -24,6 +24,14 @@ Because Tally built their platform the right way—interfacing with onchain gove
 
 This means that with a new client, that data remains entirely readable and functional. TSLO simply acts as a new lens to view and interact with the immutable governance data that already belongs to the community.
 
+## A Tribute, Not a Competitor
+
+We want to be incredibly clear: **this is by no means an attempt to build a Tally competitor**. Instead, it is a way for us to call for Tally to stay. We believe this industry desperately needs great projects like Tally. Our cyberpunk movement needs governance tools like Tally now more than ever.
+
+I respectfully disagree with Dennison's view that "the market isn't here" and that "crypto finds its PMF in payments and speculation." My view is that we are on the absolute dawn of mass adoption. I also respectfully disagree that "regulation clarification makes DAOs optional." Instead, I've always seen it simply: a company *is* a DAO, and a DAO is just a company with better governance tools, transparency, and trust.
+
+Tally plays a crucial role in making that trust visible and actionable. Here is our tribute to that mission.
+
 ## What's Next?
 
 Our current implementation is a fast-tracked MVP. It includes:
