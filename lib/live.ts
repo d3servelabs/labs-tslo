@@ -353,71 +353,17 @@ function buildDaoLoadEstimate(proposalCount: number, startBlock: number, latestB
 
 async function loadProposalEntries(dao: DaoConfig, configStartBlock?: number): Promise<ScanResult> {
   const client = getClient(dao.chainId);
-  const latestBlock = await client.getBlockNumber();
+  let latestBlock = BigInt(0);
+  try {
+     latestBlock = await client.getBlockNumber();
+  } catch(e) {
+     console.warn("Failed to get latest block from RPC on server side, ignoring.");
+  }
+  
   const fromBlock = configStartBlock ?? 0;
   
-  // We skip loading logs on the server to prevent heavy RPC queries
-  // The client will fetch and cache them in IndexedDB.
-  const proposalLogs: any[] = [];
-  const voteLogs: any[] = [];
-
-  const blockCache = new Map<bigint, Promise<bigint>>();
-
-  function getBlockTimestamp(blockNumber: bigint) {
-    const existing = blockCache.get(blockNumber);
-    if (existing) {
-      return existing;
-    }
-
-    const next = client.getBlock({ blockNumber }).then((block) => block.timestamp);
-    blockCache.set(blockNumber, next);
-    return next;
-  }
-
-  const voteStatsMap = buildVoteStats(
-    proposalLogs.map((proposalLog) => (proposalLog.args as { proposalId: bigint }).proposalId),
-    voteLogs
-  );
-
-  const entries = await Promise.all(
-    proposalLogs.map(async (log) => {
-      const args = log.args as {
-        proposalId: bigint;
-        proposer: `0x${string}`;
-        targets: readonly `0x${string}`[];
-        values: readonly bigint[];
-        signatures: readonly string[];
-        calldatas: readonly `0x${string}`[];
-        voteStart: bigint;
-        voteEnd: bigint;
-        description: string;
-      };
-
-      const createdAt = formatDate(await getBlockTimestamp(log.blockNumber ?? BigInt(0)));
-      const title = extractTitle(args.description, args.proposalId.toString());
-      const voteStats = voteStatsMap.get(args.proposalId.toString());
-
-      return {
-        ...args,
-        createdAt,
-        blockNumber: log.blockNumber ?? BigInt(0),
-        latestBlock,
-        title,
-        summary: extractSummary(args.description, title),
-        voteStats: voteStats
-          ? {
-              forVotes: voteStats.forVotes,
-              againstVotes: voteStats.againstVotes,
-              abstainVotes: voteStats.abstainVotes,
-              voterCount: voteStats.voters.size
-            }
-          : undefined
-      } satisfies ProposalLogEntry;
-    })
-  );
-
   return {
-    entries: entries.sort((left, right) => right.createdAt.localeCompare(left.createdAt)),
+    entries: [],
     startBlock: fromBlock,
     latestBlock: Number(latestBlock)
   };
