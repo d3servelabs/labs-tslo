@@ -190,10 +190,7 @@ export function DaoOverview({
                 <ProposalCard key={proposal.id} dao={dao} proposal={proposal} />
               ))}
               {isSyncing && (
-                <>
-                  <ProposalCardSkeleton />
-                  <ProposalCardSkeleton />
-                </>
+                <ProposalCardSkeleton />
               )}
               {!isSyncing && hasMore && (
                 <div style={{ display: "flex", justifyContent: "center", marginTop: "1rem" }}>
@@ -207,11 +204,7 @@ export function DaoOverview({
               )}
             </>
           ) : isSyncing ? (
-            <>
-              <ProposalCardSkeleton />
-              <ProposalCardSkeleton />
-              <ProposalCardSkeleton />
-            </>
+            <ProposalCardSkeleton />
           ) : (
             <div className="empty-state">
               This DAO is configured, but there is no proposal history loaded yet.
