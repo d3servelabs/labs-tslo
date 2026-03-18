@@ -49,6 +49,8 @@ export interface LoadStatus {
   progress?: number;
   scannedBlocks?: number;
   totalBlocks?: number;
+  startBlock?: number;
+  latestBlock?: number;
 }
 
 export interface Vote {
@@ -72,8 +74,12 @@ export interface Proposal {
   description: string;
   turnout: number;
   votes: VoteTally;
+  totalVotes?: number;
+  voterCount?: number;
   actions: ActionCall[];
   timeline: TimelineStep[];
+  executionTxHash?: `0x${string}`;
+  queueTxHash?: `0x${string}`;
   voters?: Vote[];
   loadStatus?: LoadStatus;
 }

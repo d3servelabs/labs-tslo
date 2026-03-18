@@ -305,6 +305,46 @@ select {
   border-color: rgba(15, 118, 110, 0.3);
 }
 
+.proposal-card-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1.2fr) minmax(260px, 0.8fr);
+}
+
+.proposal-card-votes {
+  display: grid;
+  gap: 10px;
+  align-content: center;
+}
+
+.proposal-card-vote-numbers,
+.proposal-card-vote-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.92rem;
+}
+
+.proposal-card-vote-meta {
+  color: var(--muted);
+}
+
+.vote-for-text {
+  color: #0f766e;
+  font-weight: 700;
+}
+
+.vote-against-text {
+  color: #be123c;
+  font-weight: 700;
+}
+
+.vote-abstain-text {
+  color: #64748b;
+  font-weight: 700;
+}
+
 .row-between {
   display: flex;
   align-items: flex-start;
@@ -320,6 +360,8 @@ select {
   font-weight: 700;
   background: var(--accent-soft);
   color: var(--accent-strong);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .status-pill[data-status="queued"] {
@@ -330,6 +372,22 @@ select {
 .status-pill[data-status="defeated"] {
   background: rgba(190, 24, 93, 0.12);
   color: var(--danger);
+}
+
+.status-pill[data-status="pending"] {
+  background: rgba(100, 116, 139, 0.14);
+  color: #334155;
+}
+
+.status-pill[data-status="succeeded"] {
+  background: rgba(16, 185, 129, 0.14);
+  color: #047857;
+}
+
+.status-pill[data-status="expired"],
+.status-pill[data-status="canceled"] {
+  background: rgba(148, 163, 184, 0.2);
+  color: #475569;
 }
 
 .status-pill[data-status="executed"] {
@@ -381,6 +439,14 @@ select {
   width: 32px;
   height: 32px;
   flex: 0 0 auto;
+}
+
+.ens-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  object-fit: cover;
+  border: 1px solid rgba(15, 23, 42, 0.12);
 }
 
 .address-display-content {
@@ -564,6 +630,42 @@ select {
   gap: 12px;
 }
 
+.vote-onchain-controls {
+  display: grid;
+  gap: 10px;
+}
+
+.vote-onchain-select {
+  margin: 0;
+}
+
+.create-proposal-wrap {
+  display: grid;
+  gap: 8px;
+}
+
+.create-proposal-panel {
+  margin-top: 10px;
+}
+
+.create-proposal-fields {
+  display: grid;
+  gap: 10px;
+}
+
+.create-proposal-fields label {
+  display: grid;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.create-proposal-fields textarea.search-input {
+  min-height: 72px;
+  resize: vertical;
+  margin: 0;
+}
+
 .wallet-badge {
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
   font-size: 0.88rem;
@@ -609,6 +711,20 @@ select {
   font-size: 0.82rem;
   cursor: pointer;
   white-space: nowrap;
+}
+
+.address-inline-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ens-avatar-inline {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  object-fit: cover;
+  border: 1px solid rgba(15, 23, 42, 0.08);
 }
 
 .address-inline:hover {
@@ -1191,6 +1307,35 @@ select {
   text-underline-offset: 2px;
 }
 
+.proposal-description table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1em 0;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.proposal-description th,
+.proposal-description td {
+  border: 1px solid var(--line);
+  padding: 10px 12px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.proposal-description th {
+  background: rgba(15, 23, 42, 0.04);
+  font-weight: 700;
+}
+
+.proposal-description img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  margin: 0.8em 0;
+}
+
 @media (max-width: 960px) {
   .hero-grid,
   .grid-2,
@@ -1217,5 +1362,9 @@ select {
 
   .address-display-row {
     align-items: center;
+  }
+
+  .proposal-card-grid {
+    grid-template-columns: 1fr;
   }
 }

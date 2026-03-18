@@ -6,7 +6,7 @@ import { formatPercent } from "@/lib/format";
 import { DaoConfig } from "@/lib/types";
 
 export function DaoCard({ dao }: { dao: DaoConfig }) {
-  const href = (getSiteMode() === "single" ? "/" : `/daos/${dao.slug}`) as Route;
+  const href = (getSiteMode() === "single" ? "/" : `/gov/${dao.slug}`) as Route;
 
   return (
     <Link href={href} className="dao-card">

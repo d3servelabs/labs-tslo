@@ -7,7 +7,7 @@ import { formatAddress } from "@/lib/format";
 declare global {
   interface Window {
     ethereum?: {
-      request: (args: { method: string }) => Promise<unknown>;
+      request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
     };
   }
 }

@@ -6,7 +6,7 @@ TSLO is a free, open-source governance continuity app for DAOs that need a fast 
 - config-driven deployment modes
 - normalized JSON read APIs
 - sample DAO and proposal pages, including ENS DAO
-- global wallet-connect stub for future Governor write actions
+- wallet-connected Governor write actions for proposing and voting
 - swappable data adapters for fixture, live public JSON-RPC, and a future indexer path
 
 ## Product plan
@@ -47,8 +47,8 @@ Single DAO mode:
 Multi DAO mode:
 
 - `/`
-- `/daos/ens`
-- `/daos/ens/proposals/treasury-flow-automation`
+- `/gov/ens`
+- `/gov/ens/proposal/55749099144243971799440687308450608384225109120486751685653209891316805274409`
 - `/api/daos`
 - `/api/daos/ens`
 - `/api/daos/ens/proposals/treasury-flow-automation`
@@ -80,5 +80,4 @@ TSLO_DATA_ADAPTER=live
 
 - replace fixture data with a live query or indexer-backed store
 - add Governor contract capability detection during DAO onboarding
-- replace the wallet stub with a shared `viem`-based wallet layer
-- implement write adapters for propose, vote, delegate, queue, execute, and cancel
+- extend write adapters to delegate, queue, execute, and cancel

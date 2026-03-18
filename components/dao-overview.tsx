@@ -1,11 +1,16 @@
+"use client";
+
 import Link from "next/link";
+import { useState, useEffect } from "react";
 
 import { AddressDisplay } from "@/components/address-display";
+import { CreateProposalButton } from "@/components/create-proposal-button";
 import { LoadStatusBanner } from "@/components/load-status-banner";
 import { ProposalCard } from "@/components/proposal-card";
 import { formatAddress, formatNumber, formatPercent } from "@/lib/format";
 import { DataAdapterKind } from "@/lib/data-adapter";
 import { DaoConfig } from "@/lib/types";
+import { useDaoSync } from "@/hooks/use-dao-sync";
 
 export function DaoOverview({
   dao,
@@ -16,6 +21,10 @@ export function DaoOverview({
   apiBasePath: string;
   adapterKind: DataAdapterKind;
 }) {
+  const initialStartBlock = dao.loadStatus?.startBlock ?? 0;
+  const { proposals, isSyncing, progress } = useDaoSync(dao, initialStartBlock);
+  
+  const displayProposals = proposals.length > 0 ? proposals : dao.proposals;
   return (
     <main className="shell">
       <section className="hero">
@@ -161,13 +170,16 @@ export function DaoOverview({
             <div className="eyebrow">Proposals</div>
             <h2 className="section-title">Proposal history</h2>
           </div>
-          <a href={apiBasePath} className="button-secondary">
-            DAO JSON
-          </a>
+          <div className="cta-row">
+            <CreateProposalButton chainId={dao.chainId} governorAddress={dao.contracts.governor} />
+            <a href={apiBasePath} className="button-secondary">
+              DAO JSON
+            </a>
+          </div>
         </div>
         <div className="proposal-list">
-          {dao.proposals.length > 0 ? (
-            dao.proposals.map((proposal) => <ProposalCard key={proposal.id} dao={dao} proposal={proposal} />)
+          {displayProposals.length > 0 ? (
+            displayProposals.map((proposal) => <ProposalCard key={proposal.id} dao={dao} proposal={proposal} />)
           ) : (
             <div className="empty-state">
               This DAO is configured, but there is no proposal history loaded yet.

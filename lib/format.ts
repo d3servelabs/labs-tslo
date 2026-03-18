@@ -1,6 +1,42 @@
+import { marked } from "marked";
+
+const markdownRenderer = new marked.Renderer();
+
+markdownRenderer.link = ({ href, title, tokens, text: fallbackText }) => {
+  const safeHref = href ?? "#";
+  const text = tokens ? marked.parseInline(fallbackText || "") : fallbackText;
+  const titleAttr = title ? ` title="${title}"` : "";
+  const isExternal = /^https?:\/\//i.test(safeHref);
+  const externalAttrs = isExternal ? ` target="_blank" rel="noreferrer"` : "";
+
+  return `<a href="${safeHref}"${titleAttr}${externalAttrs}>${text}</a>`;
+};
+
+markdownRenderer.image = ({ href, title, text }) => {
+  const safeHref = href ?? "";
+  const safeAlt = text ?? "";
+  const titleAttr = title ? ` title="${title}"` : "";
+  return `<img src="${safeHref}" alt="${safeAlt}"${titleAttr} loading="lazy" />`;
+};
+
+markdownRenderer.html = () => "";
+
+marked.setOptions({
+  gfm: true,
+  breaks: true,
+  renderer: markdownRenderer
+});
+
 export function formatNumber(value: number) {
   return new Intl.NumberFormat("en-US", {
     maximumFractionDigits: value >= 100 ? 0 : 1
+  }).format(value);
+}
+
+export function formatCompactNumber(value: number) {
+  return new Intl.NumberFormat("en-US", {
+    notation: "compact",
+    maximumFractionDigits: value >= 1_000_000 ? 1 : 2
   }).format(value);
 }
 
@@ -45,22 +81,5 @@ export function extractAbstract(description: string): string {
 }
 
 export function renderMarkdownBasic(text: string): string {
-  const escaped = text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-
-  return escaped
-    .replace(/^### (.+)$/gm, "<h3>$1</h3>")
-    .replace(/^## (.+)$/gm, "<h2>$1</h2>")
-    .replace(/^# (.+)$/gm, "<h1>$1</h1>")
-    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-    .replace(/\*(.+?)\*/g, "<em>$1</em>")
-    .replace(/`(.+?)`/g, "<code>$1</code>")
-    .replace(/\[(.+?)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>')
-    .replace(/^- (.+)$/gm, "<li>$1</li>")
-    .replace(/((?:<li>.*<\/li>\n?)+)/g, "<ul>$1</ul>")
-    .replace(/\n{2,}/g, "</p><p>")
-    .replace(/^(?!<(?:h[1-3]|ul|li|p)[ />])(.+)$/gm, "<p>$1</p>")
-    .replace(/<p><\/p>/g, "");
+  return marked.parse(text, { async: false });
 }

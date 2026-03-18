@@ -60,7 +60,7 @@ export default async function HomePage() {
               its branded governance space.
             </p>
             <div className="cta-row">
-              <Link href={`/daos/${daos[0].slug}`} className="button">
+              <Link href={`/gov/${daos[0].slug}`} className="button">
                 Open first DAO
               </Link>
               <Link href="/api/daos" className="button-secondary">
@@ -119,7 +119,7 @@ export default async function HomePage() {
             next indexing work on a standard OpenZeppelin Governor target.
           </p>
           <div className="cta-row">
-            <Link href="/daos/ens" className="button">
+            <Link href="/gov/ens" className="button">
               Open ENS DAO
             </Link>
             <Link href="/api/daos/ens" className="button-secondary">

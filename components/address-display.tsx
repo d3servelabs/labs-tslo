@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPublicClient, getAddress, http } from "viem";
+import { mainnet } from "viem/chains";
 
 import { formatAddress } from "@/lib/format";
 
@@ -12,6 +14,17 @@ type ExplorerConfig = {
   href: string;
   favicon: string;
 };
+
+type EnsProfile = {
+  name?: string;
+  avatarUrl?: string;
+};
+
+const ensProfileCache = new Map<string, EnsProfile>();
+const ensClient = createPublicClient({
+  chain: mainnet,
+  transport: http("https://eth-mainnet.public.blastapi.io")
+});
 
 function addressToSeed(address: string) {
   return parseInt(address.slice(2, 10), 16);
@@ -122,8 +135,77 @@ export function AddressDisplay({
   mode: AddressDisplayMode;
 }) {
   const [copied, setCopied] = useState(false);
+  const [ensProfile, setEnsProfile] = useState<EnsProfile>({});
   const displayValue = mode === "full" ? address : formatAddress(address);
   const explorers = getExplorerConfigs(chainId, address);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function resolveEnsProfile() {
+      if (chainId !== 1) {
+        if (!cancelled) {
+          setEnsProfile({});
+        }
+        return;
+      }
+
+      let normalizedAddress: `0x${string}`;
+      try {
+        normalizedAddress = getAddress(address);
+      } catch {
+        if (!cancelled) {
+          setEnsProfile({});
+        }
+        return;
+      }
+
+      const cacheKey = normalizedAddress.toLowerCase();
+      const cached = ensProfileCache.get(cacheKey);
+      if (cached) {
+        if (!cancelled) {
+          setEnsProfile(cached);
+        }
+        return;
+      }
+
+      try {
+        const ensName = await ensClient.getEnsName({ address: normalizedAddress });
+        if (!ensName) {
+          ensProfileCache.set(cacheKey, {});
+          if (!cancelled) {
+            setEnsProfile({});
+          }
+          return;
+        }
+
+        const [ensAvatar, githubUsername] = await Promise.all([
+          ensClient.getEnsAvatar({ name: ensName }),
+          ensClient.getEnsText({ name: ensName, key: "com.github" })
+        ]);
+
+        const profile = {
+          name: ensName,
+          avatarUrl: ensAvatar ?? (githubUsername ? `https://github.com/${githubUsername}.png?size=96` : undefined)
+        } satisfies EnsProfile;
+
+        ensProfileCache.set(cacheKey, profile);
+        if (!cancelled) {
+          setEnsProfile(profile);
+        }
+      } catch {
+        if (!cancelled) {
+          setEnsProfile({});
+        }
+      }
+    }
+
+    resolveEnsProfile();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [address, chainId]);
 
   async function handleCopy() {
     try {
@@ -136,21 +218,34 @@ export function AddressDisplay({
   }
 
   if (mode === "inline") {
+    const inlineLabel = ensProfile.name ?? formatAddress(address);
+
     return (
-      <code className="address-inline" title={address} onClick={handleCopy} role="button" tabIndex={0}>
-        {formatAddress(address)}
-      </code>
+      <span className="address-inline-wrap">
+        {ensProfile.avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={ensProfile.avatarUrl} alt="" className="ens-avatar-inline" width={18} height={18} />
+        ) : null}
+        <code className="address-inline" title={address} onClick={handleCopy} role="button" tabIndex={0}>
+          {inlineLabel}
+        </code>
+      </span>
     );
   }
 
   return (
     <div className={`address-display address-display-${mode}`}>
       <div className="address-display-main">
-        <Jazzicon address={address} size={32} />
+        {ensProfile.avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={ensProfile.avatarUrl} alt="" className="ens-avatar" width={32} height={32} />
+        ) : (
+          <Jazzicon address={address} size={32} />
+        )}
         <div className="address-display-content">
           <div className="address-display-row">
             <code className="address-display-value" title={address}>
-              {displayValue}
+              {ensProfile.name ?? displayValue}
             </code>
             <button
               type="button"

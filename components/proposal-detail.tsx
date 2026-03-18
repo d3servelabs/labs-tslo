@@ -9,6 +9,7 @@ import { Tabs } from "@/components/tabs";
 import { TruncatedDescription } from "@/components/truncated-description";
 import { ActionCard } from "@/components/action-card";
 import { VoterList } from "@/components/voter-list";
+import { VoteOnchainButton } from "@/components/vote-onchain-button";
 import { formatDate, renderMarkdownBasic } from "@/lib/format";
 import { DaoConfig, Proposal } from "@/lib/types";
 
@@ -21,6 +22,10 @@ export function ProposalDetail({
   proposal: Proposal;
   daoHref: string;
 }) {
+  const etherscanBase = dao.chainId === 1 ? "https://etherscan.io" : `https://${dao.chainId}.etherscan.io`;
+  const blockscoutBase =
+    dao.chainId === 1 ? "https://eth.blockscout.com" : `https://blockscout.com/chains/${dao.chainId}`;
+
   return (
     <main className="shell proposal-shell">
       <div className="row-between breadcrumb-row">
@@ -73,10 +78,39 @@ export function ProposalDetail({
         </div>
 
         <div className="proposal-sidebar">
+          <VoteOnchainButton
+            chainId={dao.chainId}
+            governorAddress={dao.contracts.governor}
+            proposalId={proposal.id}
+          />
           <div className="panel sidebar-panel">
             <h3 className="sidebar-title">Final Votes</h3>
             <VoteSummaryCard votes={proposal.votes} />
           </div>
+
+          {proposal.executionTxHash ? (
+            <div className="panel sidebar-panel">
+              <h3 className="sidebar-title">Execution</h3>
+              <div className="activity-list">
+                <a
+                  className="activity-item"
+                  href={`${etherscanBase}/tx/${proposal.executionTxHash}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  View it on Etherscan
+                </a>
+                <a
+                  className="activity-item"
+                  href={`${blockscoutBase}/tx/${proposal.executionTxHash}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  View it on Blockscan
+                </a>
+              </div>
+            </div>
+          ) : null}
 
           {proposal.actions.length > 0 && (
             <div className="panel sidebar-panel tenderly-panel">

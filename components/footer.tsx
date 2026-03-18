@@ -1,6 +1,12 @@
-export function Footer() {
+import { loadPrimaryDao } from "@/lib/data-adapter";
+import { FooterSyncProgress } from "./footer-sync-progress";
+
+export async function Footer() {
+  const primaryDao = await loadPrimaryDao();
+
   return (
     <footer className="shell footer">
+      <FooterSyncProgress primaryDao={primaryDao} />
       <p className="footer-copy">
         <a href="https://tslo.labs.namefi.io" target="_blank" rel="noreferrer">
           TSLO (Tally Shall Live On)

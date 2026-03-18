@@ -5,6 +5,7 @@ Next.js App Router entrypoints and route handlers live here.
 ## Current shape
 
 - page routes render DAO directory, DAO detail, and proposal detail views
+- multi-DAO mode follows `/gov/:slug` and `/gov/:slug/proposal/:proposalId` paths (decimal proposal IDs)
 - API routes expose the same governance data through the selected adapter
 - styling is centralized in `globals.css`
 
