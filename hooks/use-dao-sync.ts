@@ -63,7 +63,14 @@ export function useDaoSync(dao: DaoConfig, initialStartBlock: number) {
         // Ensure fromBlock isn't completely out of sync bounds (e.g. if cache starts way before initialStartBlock)
         const effectiveFromBlock = fromBlock < BigInt(initialStartBlock) ? BigInt(initialStartBlock) : fromBlock;
         
-        setProgress(p => ({ ...p, latestBlock: Number(latestBlock), total: Number(latestBlock) - initialStartBlock }));
+        const effectiveScanned = Math.max(0, Number(effectiveFromBlock) - initialStartBlock);
+        
+        setProgress(p => ({ 
+          ...p, 
+          latestBlock: Number(latestBlock), 
+          total: Number(latestBlock) - initialStartBlock,
+          scanned: effectiveScanned
+        }));
 
         let newProposalLogs: any[] = [];
         let newVoteLogs: any[] = [];

@@ -32,8 +32,14 @@ export function FooterSyncProgress({ primaryDao }: { primaryDao?: DaoConfig }) {
         
         const latestBlock = Number(await client.getBlockNumber());
         const startBlock = primaryDao!.loadStatus?.startBlock ?? 0;
-        const lastSyncedBlock = cachedData?.lastBlock ? Number(cachedData.lastBlock) : startBlock;
-        const scannedBlocks = Math.max(0, lastSyncedBlock - startBlock);
+        
+        let lastSyncedBlock = startBlock;
+        if (cachedData?.lastBlock && Number(cachedData.lastBlock) > startBlock) {
+          lastSyncedBlock = Number(cachedData.lastBlock);
+        }
+
+        // Calculate progress accurately
+        const scannedBlocks = Math.max(0, Math.min(latestBlock - startBlock, lastSyncedBlock - startBlock));
         const totalBlocks = Math.max(0, latestBlock - startBlock);
 
         if (mounted) {
@@ -76,7 +82,16 @@ export function FooterSyncProgress({ primaryDao }: { primaryDao?: DaoConfig }) {
 
   let percentage = 0;
   if (hasSyncInfo && totalBlocks > 0) {
-    percentage = Math.floor((scannedBlocks / totalBlocks) * 100);
+    // Only show 100% if we are completely done. Otherwise, if we're very close, show 99%.
+    const rawPercentage = (scannedBlocks / totalBlocks) * 100;
+    if (scannedBlocks >= totalBlocks) {
+      percentage = 100;
+    } else {
+      percentage = Math.floor(rawPercentage);
+      if (percentage === 100) {
+        percentage = 99; // Cap at 99% until fully complete
+      }
+    }
   } else if (hasSyncInfo && totalBlocks === 0) {
     percentage = 100;
   }
