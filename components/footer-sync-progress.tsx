@@ -150,7 +150,7 @@ export function FooterSyncProgress({ primaryDao }: { primaryDao?: DaoConfig }) {
   if (!hasSyncInfo) return null;
 
   return (
-    <div style={{ marginBottom: "24px", maxWidth: "600px" }}>
+    <div style={{ marginBottom: "24px", width: "100%" }}>
       <div
         style={{
           display: "flex",
