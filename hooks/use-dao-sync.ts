@@ -41,6 +41,36 @@ function inferPartialState(latestBlock: bigint, voteStart: bigint, voteEnd: bigi
   return "expired";
 }
 
+function mergeRanges(ranges: [bigint, bigint][]): [bigint, bigint][] {
+  if (ranges.length === 0) return [];
+  // Sort by start block ascending
+  ranges.sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0);
+  const merged: [bigint, bigint][] = [ranges[0]];
+  for (let i = 1; i < ranges.length; i++) {
+    const current = ranges[i];
+    const lastMerged = merged[merged.length - 1];
+    // If they overlap or are adjacent (e.g., [1, 10] and [11, 20])
+    if (current[0] <= lastMerged[1] + BigInt(1)) {
+      lastMerged[1] = current[1] > lastMerged[1] ? current[1] : lastMerged[1];
+    } else {
+      merged.push(current);
+    }
+  }
+  return merged;
+}
+
+function calculateScannedBlocks(ranges: [bigint, bigint][], start: bigint, end: bigint): bigint {
+  let scanned = BigInt(0);
+  for (const r of ranges) {
+    const overlapStart = r[0] > start ? r[0] : start;
+    const overlapEnd = r[1] < end ? r[1] : end;
+    if (overlapStart <= overlapEnd) {
+      scanned += (overlapEnd - overlapStart + BigInt(1));
+    }
+  }
+  return scanned;
+}
+
 export function useDaoSync(dao: DaoConfig, initialStartBlock: number) {
   const [proposals, setProposals] = useState<Proposal[]>(dao.proposals || []);
   const [isSyncing, setIsSyncing] = useState(true);
@@ -55,120 +85,149 @@ export function useDaoSync(dao: DaoConfig, initialStartBlock: number) {
         const cacheKey = `tslo_logs_${dao.chainId}_${dao.contracts.governor.toLowerCase()}`;
         
         let cachedData = await get(cacheKey);
-        if (!cachedData) cachedData = { lastBlock: initialStartBlock.toString(), proposalLogs: [], voteLogs: [] };
+        
+        // Migration from lastBlock -> syncedRanges
+        if (cachedData && cachedData.lastBlock && !cachedData.syncedRanges) {
+          cachedData.syncedRanges = [[initialStartBlock.toString(), cachedData.lastBlock]];
+          delete cachedData.lastBlock;
+        }
+        
+        if (!cachedData) cachedData = { syncedRanges: [], proposalLogs: [], voteLogs: [] };
+        if (!cachedData.syncedRanges) cachedData.syncedRanges = [];
         
         const latestBlock = await client.getBlockNumber();
-        const fromBlock = BigInt(cachedData.lastBlock);
+        const targetStartBlock = BigInt(initialStartBlock);
         
-        // Ensure fromBlock isn't completely out of sync bounds (e.g. if cache starts way before initialStartBlock)
-        const effectiveFromBlock = fromBlock < BigInt(initialStartBlock) ? BigInt(initialStartBlock) : fromBlock;
+        let mergedRanges: [bigint, bigint][] = cachedData.syncedRanges.map((r: [string, string]) => [BigInt(r[0]), BigInt(r[1])]);
         
-        const effectiveScanned = Math.max(0, Number(effectiveFromBlock) - initialStartBlock);
+        const effectiveScanned = calculateScannedBlocks(mergedRanges, targetStartBlock, latestBlock);
         
         setProgress(p => ({ 
           ...p, 
           latestBlock: Number(latestBlock), 
-          total: Number(latestBlock) - initialStartBlock,
-          scanned: effectiveScanned
+          total: Number(latestBlock - targetStartBlock + BigInt(1)),
+          scanned: Number(effectiveScanned)
         }));
 
         let newProposalLogs: any[] = [];
         let newVoteLogs: any[] = [];
 
-        if (effectiveFromBlock < latestBlock) {
-          let currentFromBlock = effectiveFromBlock;
-          // Most free RPCs allow 100k or 50k blocks; using 49999 to be safe and fast
-          const BATCH_SIZE = BigInt(49999);
+        let cursor = latestBlock;
+        // Most free RPCs allow 100k or 50k blocks; using 49999 to be safe and fast
+        const BATCH_SIZE = BigInt(49999);
 
-          // Simple rate limiter state
-          let rateLimitDelay = 1000; // start with 1s delay on failure
-          let consecutiveErrors = 0;
+        // Simple rate limiter state
+        let rateLimitDelay = 1000; // start with 1s delay on failure
+        let consecutiveErrors = 0;
 
-          while (currentFromBlock <= latestBlock && mounted) {
-            const currentToBlock = currentFromBlock + BATCH_SIZE > latestBlock ? latestBlock : currentFromBlock + BATCH_SIZE;
+        while (cursor >= targetStartBlock && mounted) {
+          // Check if cursor is already inside a synced range
+          const encompassingRange = mergedRanges.find(r => cursor >= r[0] && cursor <= r[1]);
+          if (encompassingRange) {
+            cursor = encompassingRange[0] - BigInt(1);
+            continue;
+          }
 
-            try {
-              // Add a small delay between batches to respect rate limits (BlastAPI public: ~40 req/sec)
-              await new Promise(resolve => setTimeout(resolve, 300));
+          let toBlock = cursor;
+          let fromBlock = toBlock - BATCH_SIZE + BigInt(1);
+          if (fromBlock < targetStartBlock) fromBlock = targetStartBlock;
 
-              const [pLogs, vLogs] = await Promise.all([
-                client.getLogs({
-                  address: dao.contracts.governor as `0x${string}`,
-                  event: proposalCreatedEvent,
-                  fromBlock: currentFromBlock,
-                  toBlock: currentToBlock
-                }),
-                client.getLogs({
-                  address: dao.contracts.governor as `0x${string}`,
-                  event: voteCastEvent,
-                  fromBlock: currentFromBlock,
-                  toBlock: currentToBlock
-                })
-              ]);
-              
-              const pLogsMapped = pLogs.map(log => ({
-                args: {
-                  proposalId: log.args.proposalId?.toString(),
-                  proposer: log.args.proposer,
-                  targets: log.args.targets,
-                  values: log.args.values?.map((v: bigint) => v.toString()),
-                  signatures: log.args.signatures,
-                  calldatas: log.args.calldatas,
-                  voteStart: log.args.voteStart?.toString(),
-                  voteEnd: log.args.voteEnd?.toString(),
-                  description: log.args.description
-                },
-                blockNumber: log.blockNumber?.toString()
-              }));
+          // Prevent overlap with the nearest lower synced range
+          const overlappingLowerRange = mergedRanges.find(r => r[1] >= fromBlock && r[1] < toBlock);
+          if (overlappingLowerRange) {
+            fromBlock = overlappingLowerRange[1] + BigInt(1);
+          }
 
-              const vLogsMapped = vLogs.map(log => ({
-                args: {
-                  proposalId: log.args.proposalId?.toString(),
-                  voter: log.args.voter,
-                  support: log.args.support,
-                  weight: log.args.weight?.toString(),
-                  reason: log.args.reason
-                },
-                blockNumber: log.blockNumber?.toString()
-              }));
+          if (fromBlock > toBlock) {
+            cursor = toBlock - BigInt(1);
+            continue;
+          }
 
-              newProposalLogs.push(...pLogsMapped);
-              newVoteLogs.push(...vLogsMapped);
+          try {
+            // Add a small delay between batches to respect rate limits (BlastAPI public: ~40 req/sec)
+            await new Promise(resolve => setTimeout(resolve, 300));
 
-              cachedData = {
-                lastBlock: currentToBlock.toString(),
-                proposalLogs: [...cachedData.proposalLogs, ...pLogsMapped],
-                voteLogs: [...cachedData.voteLogs, ...vLogsMapped]
-              };
+            const [pLogs, vLogs] = await Promise.all([
+              client.getLogs({
+                address: dao.contracts.governor as `0x${string}`,
+                event: proposalCreatedEvent,
+                fromBlock,
+                toBlock
+              }),
+              client.getLogs({
+                address: dao.contracts.governor as `0x${string}`,
+                event: voteCastEvent,
+                fromBlock,
+                toBlock
+              })
+            ]);
+            
+            const pLogsMapped = pLogs.map(log => ({
+              args: {
+                proposalId: log.args.proposalId?.toString(),
+                proposer: log.args.proposer,
+                targets: log.args.targets,
+                values: log.args.values?.map((v: bigint) => v.toString()),
+                signatures: log.args.signatures,
+                calldatas: log.args.calldatas,
+                voteStart: log.args.voteStart?.toString(),
+                voteEnd: log.args.voteEnd?.toString(),
+                description: log.args.description
+              },
+              blockNumber: log.blockNumber?.toString()
+            }));
 
-              await set(cacheKey, cachedData);
-              
-              if (mounted) {
-                setProgress(p => ({ ...p, scanned: Number(currentToBlock) - initialStartBlock }));
-              }
+            const vLogsMapped = vLogs.map(log => ({
+              args: {
+                proposalId: log.args.proposalId?.toString(),
+                voter: log.args.voter,
+                support: log.args.support,
+                weight: log.args.weight?.toString(),
+                reason: log.args.reason
+              },
+              blockNumber: log.blockNumber?.toString()
+            }));
 
-              currentFromBlock = currentToBlock + BigInt(1);
-              
-              // Reset error state on success
-              rateLimitDelay = 1000;
-              consecutiveErrors = 0;
+            newProposalLogs.push(...pLogsMapped);
+            newVoteLogs.push(...vLogsMapped);
 
-            } catch (error: any) {
-              console.warn(`RPC error fetching logs (from ${currentFromBlock} to ${currentToBlock}):`, error.message);
-              consecutiveErrors++;
-              
-              if (consecutiveErrors > 5) {
-                console.error("Too many consecutive RPC errors. Aborting sync.");
-                break; // Give up after 5 retries
-              }
-              
-              // Exponential backoff
-              console.log(`Waiting ${rateLimitDelay}ms before retrying...`);
-              await new Promise(resolve => setTimeout(resolve, rateLimitDelay));
-              rateLimitDelay *= 2; 
-              
-              // Do NOT advance currentFromBlock; the loop will retry the same block range
+            mergedRanges.push([fromBlock, toBlock]);
+            mergedRanges = mergeRanges(mergedRanges);
+
+            cachedData = {
+              syncedRanges: mergedRanges.map(r => [r[0].toString(), r[1].toString()]),
+              proposalLogs: [...cachedData.proposalLogs, ...pLogsMapped],
+              voteLogs: [...cachedData.voteLogs, ...vLogsMapped]
+            };
+
+            await set(cacheKey, cachedData);
+            
+            if (mounted) {
+              const currentScanned = calculateScannedBlocks(mergedRanges, targetStartBlock, latestBlock);
+              setProgress(p => ({ ...p, scanned: Number(currentScanned) }));
             }
+
+            cursor = fromBlock - BigInt(1);
+            
+            // Reset error state on success
+            rateLimitDelay = 1000;
+            consecutiveErrors = 0;
+
+          } catch (error: any) {
+            console.warn(`RPC error fetching logs (from ${fromBlock} to ${toBlock}):`, error.message);
+            consecutiveErrors++;
+            
+            if (consecutiveErrors > 5) {
+              console.error("Too many consecutive RPC errors. Aborting sync.");
+              break; // Give up after 5 retries
+            }
+            
+            // Exponential backoff
+            console.log(`Waiting ${rateLimitDelay}ms before retrying...`);
+            await new Promise(resolve => setTimeout(resolve, rateLimitDelay));
+            rateLimitDelay *= 2; 
+            
+            // Do NOT advance cursor; the loop will retry the same block range
           }
         }
 
@@ -249,7 +308,8 @@ export function useDaoSync(dao: DaoConfig, initialStartBlock: number) {
         newProposals.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
         
         if (!mounted) return;
-        setProgress(p => ({ ...p, scanned: Number(latestBlock) - initialStartBlock }));
+        const finalScanned = calculateScannedBlocks(mergedRanges, targetStartBlock, latestBlock);
+        setProgress(p => ({ ...p, scanned: Number(finalScanned) }));
         setProposals(newProposals);
       } catch (err) {
         console.error("Failed to sync dao logs", err);

@@ -34,13 +34,33 @@ export function FooterSyncProgress({ primaryDao }: { primaryDao?: DaoConfig }) {
         const startBlock = primaryDao!.loadStatus?.startBlock ?? 0;
         
         let lastSyncedBlock = startBlock;
-        if (cachedData?.lastBlock && Number(cachedData.lastBlock) > startBlock) {
-          lastSyncedBlock = Number(cachedData.lastBlock);
+        let scannedBlocks = 0;
+        
+        if (cachedData) {
+          let syncedRanges: [bigint, bigint][] = [];
+          
+          if (cachedData.syncedRanges) {
+            syncedRanges = cachedData.syncedRanges.map((r: [string, string]) => [BigInt(r[0]), BigInt(r[1])]);
+          } else if (cachedData.lastBlock && Number(cachedData.lastBlock) > startBlock) {
+            // fallback for legacy cache format
+            syncedRanges = [[BigInt(startBlock), BigInt(cachedData.lastBlock)]];
+          }
+
+          const targetStartBlock = BigInt(startBlock);
+          const targetEndBlock = BigInt(latestBlock);
+          
+          let scanned = BigInt(0);
+          for (const r of syncedRanges) {
+            const overlapStart = r[0] > targetStartBlock ? r[0] : targetStartBlock;
+            const overlapEnd = r[1] < targetEndBlock ? r[1] : targetEndBlock;
+            if (overlapStart <= overlapEnd) {
+              scanned += (overlapEnd - overlapStart + BigInt(1));
+            }
+          }
+          scannedBlocks = Number(scanned);
         }
 
-        // Calculate progress accurately
-        const scannedBlocks = Math.max(0, Math.min(latestBlock - startBlock, lastSyncedBlock - startBlock));
-        const totalBlocks = Math.max(0, latestBlock - startBlock);
+        const totalBlocks = Math.max(0, latestBlock - startBlock + 1);
 
         if (mounted) {
           setProgress({
@@ -96,8 +116,6 @@ export function FooterSyncProgress({ primaryDao }: { primaryDao?: DaoConfig }) {
     percentage = 100;
   }
 
-  const syncTilBlock = hasSyncInfo ? startBlock + scannedBlocks : undefined;
-
   if (!hasSyncInfo) return null;
 
   return (
@@ -115,7 +133,7 @@ export function FooterSyncProgress({ primaryDao }: { primaryDao?: DaoConfig }) {
           Syncing blocks: {startBlock.toLocaleString()} &rarr; {latestBlock.toLocaleString()}
         </span>
         <span>
-          {percentage}% (Synced until: {syncTilBlock?.toLocaleString()})
+          {percentage}% ({scannedBlocks.toLocaleString()} / {totalBlocks.toLocaleString()} blocks)
         </span>
       </div>
       <div className="progress">
