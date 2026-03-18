@@ -361,10 +361,10 @@ select {
 
 .address-display {
   display: grid;
-  gap: 12px;
+  gap: 10px;
   width: 100%;
-  margin-top: 10px;
-  padding: 14px 16px;
+  margin-top: 8px;
+  padding: 10px 14px;
   border-radius: var(--radius-sm);
   border: 1px solid rgba(15, 23, 42, 0.08);
   background: rgba(255, 255, 255, 0.72);
@@ -372,14 +372,14 @@ select {
 
 .address-display-main {
   display: grid;
-  grid-template-columns: 40px minmax(0, 1fr);
-  gap: 12px;
-  align-items: start;
+  grid-template-columns: 32px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
 }
 
 .jazz-icon {
-  width: 40px;
-  height: 40px;
+  width: 32px;
+  height: 32px;
   flex: 0 0 auto;
 }
 
@@ -462,15 +462,7 @@ select {
   line-height: 1.5;
 }
 
-.proposal-description {
-  margin: 0;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  color: var(--ink);
-  font-family: inherit;
-  font-size: 1rem;
-  line-height: 1.65;
-}
+/* .proposal-description styles moved above (prose block) */
 
 .proposal-action-index {
   color: var(--muted);
@@ -587,6 +579,144 @@ select {
   color: var(--ink);
 }
 
+/* Inline address pill */
+.address-inline {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  background: rgba(15, 118, 110, 0.06);
+  color: var(--accent-strong);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 0.82rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.address-inline:hover {
+  background: rgba(15, 118, 110, 0.12);
+}
+
+/* Load status banners */
+.load-status-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.load-status-info {
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px solid rgba(59, 130, 246, 0.22);
+  color: #1d4ed8;
+}
+
+.load-status-error {
+  background: rgba(190, 24, 93, 0.08);
+  border: 1px solid rgba(190, 24, 93, 0.22);
+  color: var(--danger);
+}
+
+.load-status-icon {
+  flex: 0 0 auto;
+  font-size: 0.95rem;
+}
+
+/* Loading skeletons */
+@keyframes shimmer {
+  0% { background-position: -600px 0; }
+  100% { background-position: 600px 0; }
+}
+
+@keyframes pulse-text {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+.loading-skeleton {
+  padding: 28px;
+  display: grid;
+  gap: 16px;
+}
+
+.loading-bar {
+  border-radius: 8px;
+  background: linear-gradient(90deg, rgba(15, 23, 42, 0.06) 25%, rgba(15, 23, 42, 0.12) 50%, rgba(15, 23, 42, 0.06) 75%);
+  background-size: 1200px 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+
+.loading-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  color: var(--accent-strong);
+  font-size: 0.9rem;
+  animation: pulse-text 2s ease-in-out infinite;
+}
+
+.loading-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--accent-soft);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Proposal description prose */
+.proposal-description {
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 1rem;
+  line-height: 1.65;
+}
+
+.proposal-description h1,
+.proposal-description h2,
+.proposal-description h3 {
+  margin: 1.2em 0 0.4em;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.proposal-description p {
+  margin: 0.75em 0;
+}
+
+.proposal-description ul {
+  padding-left: 1.5em;
+  margin: 0.75em 0;
+}
+
+.proposal-description li {
+  margin: 0.3em 0;
+}
+
+.proposal-description code {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 0.88em;
+  background: rgba(15, 23, 42, 0.06);
+  padding: 1px 4px;
+  border-radius: 4px;
+}
+
+.proposal-description a {
+  color: var(--accent-strong);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 @media (max-width: 960px) {
   .hero-grid,
   .grid-2,
@@ -612,6 +742,6 @@ select {
   }
 
   .address-display-row {
-    align-items: stretch;
+    align-items: center;
   }
 }

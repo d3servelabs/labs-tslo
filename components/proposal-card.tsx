@@ -1,6 +1,7 @@
 import type { Route } from "next";
 import Link from "next/link";
 
+import { LoadStatusBanner } from "@/components/load-status-banner";
 import { formatDate, formatPercent } from "@/lib/format";
 import { DaoConfig, Proposal } from "@/lib/types";
 
@@ -22,13 +23,13 @@ export function ProposalCard({ dao, proposal }: { dao: DaoConfig; proposal: Prop
       </div>
       <p className="muted">{proposal.summary}</p>
       <div className="pill-row">
-        <span className="metric-pill">Ends {formatDate(proposal.votingEndsAt)}</span>
+        <span className="metric-pill">
+          {proposal.loadStatus?.isPartial ? "End date pending" : `Ends ${formatDate(proposal.votingEndsAt)}`}
+        </span>
         <span className="metric-pill">{formatPercent(proposal.turnout)} turnout</span>
       </div>
       {proposal.loadStatus?.isPartial ? (
-        <p className="footnote">
-          Partial data: {proposal.loadStatus.message} Estimate: {proposal.loadStatus.estimate}
-        </p>
+        <LoadStatusBanner variant="info" message={proposal.loadStatus.message} estimate={proposal.loadStatus.estimate} />
       ) : null}
     </Link>
   );

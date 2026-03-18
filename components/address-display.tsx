@@ -4,7 +4,7 @@ import { useState } from "react";
 
 import { formatAddress } from "@/lib/format";
 
-type AddressDisplayMode = "short" | "full";
+type AddressDisplayMode = "short" | "full" | "inline";
 
 type ExplorerConfig = {
   id: string;
@@ -130,7 +130,7 @@ export function AddressDisplay({
   mode: AddressDisplayMode;
 }) {
   const [copied, setCopied] = useState(false);
-  const displayValue = mode === "short" ? formatAddress(address) : address;
+  const displayValue = mode === "full" ? address : formatAddress(address);
   const explorers = getExplorerConfigs(chainId, address);
 
   async function handleCopy() {
@@ -141,6 +141,14 @@ export function AddressDisplay({
     } catch {
       setCopied(false);
     }
+  }
+
+  if (mode === "inline") {
+    return (
+      <code className="address-inline" title={address} onClick={handleCopy} role="button" tabIndex={0}>
+        {formatAddress(address)}
+      </code>
+    );
   }
 
   return (

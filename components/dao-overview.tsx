@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { AddressDisplay } from "@/components/address-display";
+import { LoadStatusBanner } from "@/components/load-status-banner";
 import { ProposalCard } from "@/components/proposal-card";
 import { formatAddress, formatNumber, formatPercent } from "@/lib/format";
 import { DataAdapterKind } from "@/lib/data-adapter";
@@ -88,9 +89,7 @@ export function DaoOverview({
             pretending every DAO supports identical write paths.
           </p>
           {dao.loadStatus?.isPartial ? (
-            <p className="footnote">
-              Partial load: {dao.loadStatus.message} Estimate: {dao.loadStatus.estimate}
-            </p>
+            <LoadStatusBanner variant="info" message={dao.loadStatus.message} estimate={dao.loadStatus.estimate} />
           ) : null}
           {dao.supportNotes ? <p className="footnote">{dao.supportNotes}</p> : null}
         </div>

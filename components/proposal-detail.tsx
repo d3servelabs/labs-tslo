@@ -2,8 +2,9 @@ import type { Route } from "next";
 import Link from "next/link";
 
 import { AddressDisplay } from "@/components/address-display";
+import { LoadStatusBanner } from "@/components/load-status-banner";
 import { ProposalVoteBars } from "@/components/proposal-vote-bars";
-import { formatDate, formatPercent } from "@/lib/format";
+import { formatDate, formatPercent, renderMarkdownBasic } from "@/lib/format";
 import { DaoConfig, Proposal } from "@/lib/types";
 
 export function ProposalDetail({
@@ -31,23 +32,25 @@ export function ProposalDetail({
         <h1 className="proposal-title">{proposal.title}</h1>
         <p className="lede">{proposal.summary}</p>
         {proposal.loadStatus?.isPartial ? (
-          <p className="footnote">
-            Partial data: {proposal.loadStatus.message} Estimate: {proposal.loadStatus.estimate}
-          </p>
+          <LoadStatusBanner variant="info" message={proposal.loadStatus.message} estimate={proposal.loadStatus.estimate} />
         ) : null}
         <div className="pill-row">
           <span className="metric-pill">Created {formatDate(proposal.createdAt)}</span>
-          <span className="metric-pill">Turnout {formatPercent(proposal.turnout)}</span>
+          <span className="metric-pill">
+            {proposal.loadStatus?.isPartial ? "Turnout pending" : `Turnout ${formatPercent(proposal.turnout)}`}
+          </span>
         </div>
         <div className="proposal-meta-grid">
           <div className="proposal-meta-panel">
             <div className="eyebrow">Proposer</div>
-            <AddressDisplay chainId={dao.chainId} address={proposal.proposer} mode="short" />
+            <AddressDisplay chainId={dao.chainId} address={proposal.proposer} mode="inline" />
           </div>
           <div className="proposal-meta-panel">
             <div className="eyebrow">Voting Window</div>
             <div className="proposal-meta-copy">
-              {formatDate(proposal.votingStartsAt)} to {formatDate(proposal.votingEndsAt)}
+              {proposal.loadStatus?.isPartial
+                ? "Voting window not yet resolved"
+                : `${formatDate(proposal.votingStartsAt)} to ${formatDate(proposal.votingEndsAt)}`}
             </div>
           </div>
         </div>
@@ -55,7 +58,10 @@ export function ProposalDetail({
 
       <section className="section panel">
         <div className="eyebrow">Description</div>
-        <pre className="proposal-description">{proposal.description}</pre>
+        <div
+          className="proposal-description"
+          dangerouslySetInnerHTML={{ __html: renderMarkdownBasic(proposal.description) }}
+        />
       </section>
 
       <section className="section proposal-grid">
@@ -74,7 +80,7 @@ export function ProposalDetail({
                 <div className="timeline-dot" data-complete={step.complete} />
                 <div>
                   <strong>{step.label}</strong>
-                  <div className="timeline-note">{step.timestamp}</div>
+                  <div className="timeline-note">{formatDate(step.timestamp)}</div>
                   <div className="footnote">{step.note}</div>
                 </div>
               </div>
@@ -93,7 +99,7 @@ export function ProposalDetail({
                 <span className="proposal-action-index">Action {index + 1}</span>
               </div>
               <p className="muted">{action.summary}</p>
-              <AddressDisplay chainId={dao.chainId} address={action.target} mode="short" />
+              <AddressDisplay chainId={dao.chainId} address={action.target} mode="inline" />
               <pre className="code-block">{action.calldata}</pre>
             </div>
           ))}
