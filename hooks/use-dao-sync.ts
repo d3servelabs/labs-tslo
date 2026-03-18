@@ -40,6 +40,15 @@ const proposalCreatedEvent = parseAbiItem(
 const voteCastEvent = parseAbiItem(
   "event VoteCast(address indexed voter, uint256 proposalId, uint8 support, uint256 weight, string reason)"
 );
+const proposalQueuedEvent = parseAbiItem(
+  "event ProposalQueued(uint256 proposalId, uint256 etaSeconds)"
+);
+const proposalExecutedEvent = parseAbiItem(
+  "event ProposalExecuted(uint256 proposalId)"
+);
+const proposalExtendedEvent = parseAbiItem(
+  "event ProposalExtended(uint256 proposalId, uint64 extendedDeadline)"
+);
 
 const defaultRpcUrls: Record<number, string> = {
   1: "https://eth-mainnet.public.blastapi.io"
@@ -101,12 +110,27 @@ function calculateScannedBlocks(ranges: [bigint, bigint][], start: bigint, end: 
   return scanned;
 }
 
-async function buildProposalsList(proposalLogs: any[], voteLogs: any[], latestBlock: bigint, client: any) {
+async function buildProposalsList(
+  proposalLogs: any[], 
+  voteLogs: any[], 
+  queuedLogs: any[], 
+  executedLogs: any[], 
+  extendedLogs: any[], 
+  latestBlock: bigint, 
+  client: any,
+  blockTimestampsCache: Record<string, string>
+) {
+  let isDirty = false;
   const blockCache = new Map<string, Promise<bigint>>();
-  function getBlockTimestamp(blockNumberStr: string) {
+  async function getBlockTimestamp(blockNumberStr: string) {
+    if (blockTimestampsCache[blockNumberStr]) return BigInt(blockTimestampsCache[blockNumberStr]);
     const existing = blockCache.get(blockNumberStr);
     if (existing) return existing;
-    const next = client.getBlock({ blockNumber: BigInt(blockNumberStr) }).then((block: any) => block.timestamp);
+    const next = client.getBlock({ blockNumber: BigInt(blockNumberStr) }).then((block: any) => {
+      blockTimestampsCache[blockNumberStr] = block.timestamp.toString();
+      isDirty = true;
+      return block.timestamp;
+    });
     blockCache.set(blockNumberStr, next);
     return next;
   }
@@ -133,6 +157,27 @@ async function buildProposalsList(proposalLogs: any[], voteLogs: any[], latestBl
     });
   }
 
+  const queuedMap = new Map();
+  if (queuedLogs) {
+    for (const log of queuedLogs) {
+      queuedMap.set(log.args.proposalId, log);
+    }
+  }
+
+  const executedMap = new Map();
+  if (executedLogs) {
+    for (const log of executedLogs) {
+      executedMap.set(log.args.proposalId, log);
+    }
+  }
+
+  const extendedMap = new Map();
+  if (extendedLogs) {
+    for (const log of extendedLogs) {
+      extendedMap.set(log.args.proposalId, log);
+    }
+  }
+
   // Build proposals sequentially to avoid hitting RPC rate limits with concurrent getBlock calls
   const newProposals = [];
   for (const log of proposalLogs) {
@@ -145,16 +190,82 @@ async function buildProposalsList(proposalLogs: any[], voteLogs: any[], latestBl
     const abstainVotes = stats ? formatVoteValue(stats.abstain) : 0;
     const totalVotes = forVotes + againstVotes + abstainVotes;
 
+    const queuedLog = queuedMap.get(args.proposalId);
+    const executedLog = executedMap.get(args.proposalId);
+    const extendedLog = extendedMap.get(args.proposalId);
+    const queuedAt = queuedLog ? formatDate(await getBlockTimestamp(queuedLog.blockNumber)) : undefined;
+    const executedAt = executedLog ? formatDate(await getBlockTimestamp(executedLog.blockNumber)) : undefined;
+    const extendedAt = extendedLog ? formatDate(await getBlockTimestamp(extendedLog.blockNumber)) : undefined;
+
+    let derivedState: ProposalState = inferPartialState(latestBlock, BigInt(args.voteStart), extendedLog ? BigInt(extendedLog.args.extendedDeadline) : BigInt(args.voteEnd));
+    if (executedLog) {
+      derivedState = "executed";
+    } else if (queuedLog) {
+      derivedState = "queued";
+    }
+
+    const timeline = [];
+    timeline.push({ label: "Created", timestamp: createdAt, complete: true, note: "ProposalCreated event loaded from the governor.", icon: "plus", actor: args.proposer });
+
+    const voteStartStr = args.voteStart.toString();
+    const voteEndStr = extendedLog ? extendedLog.args.extendedDeadline.toString() : args.voteEnd.toString();
+    const voteStartBlock = BigInt(voteStartStr);
+    const voteEndBlock = BigInt(voteEndStr);
+
+    let voteStartAt = "";
+    if (voteStartBlock <= latestBlock) {
+       voteStartAt = formatDate(await getBlockTimestamp(voteStartStr));
+       timeline.push({ label: "Voting opens", timestamp: voteStartAt, complete: true, note: `Snapshot block ${voteStartStr}.`, icon: "play" });
+    } else {
+       voteStartAt = formatDate(BigInt(Math.floor(Date.now() / 1000)) + (voteStartBlock - latestBlock) * BigInt(12));
+    }
+
+    if (extendedLog) {
+       timeline.push({ label: "Vote extended", timestamp: extendedAt!, complete: true, note: `Deadline extended to block ${voteEndStr}.`, icon: "plus" });
+    }
+
+    let voteEndAt = "";
+    if (voteEndBlock <= latestBlock) {
+       voteEndAt = formatDate(await getBlockTimestamp(voteEndStr));
+       timeline.push({ label: "Voting closes", timestamp: voteEndAt, complete: true, note: `Deadline block ${voteEndStr}.`, icon: "stop" });
+       
+       const isPassed = forVotes > againstVotes && totalVotes > 0;
+       timeline.push({
+         label: isPassed ? "Vote ended (For > Against)" : "Vote ended (Against >= For)",
+         timestamp: voteEndAt,
+         complete: true,
+         note: isPassed ? "Majority reached." : "Did not reach majority or defeated.",
+         icon: isPassed ? "success" : "defeat"
+       });
+       
+       if (!executedLog && !queuedLog && derivedState === "expired") {
+          if (isPassed) {
+            derivedState = "succeeded";
+          } else {
+            derivedState = "defeated";
+          }
+       }
+    } else {
+       voteEndAt = formatDate(BigInt(Math.floor(Date.now() / 1000)) + (voteEndBlock - latestBlock) * BigInt(12));
+    }
+
+    if (queuedLog) {
+       timeline.push({ label: "Proposal queued", timestamp: queuedAt!, complete: true, note: "Queue transaction submitted to timelock.", icon: "publish" });
+    }
+    if (executedLog) {
+       timeline.push({ label: "Proposal executed", timestamp: executedAt!, complete: true, note: "Execution transaction mined.", icon: "execute" });
+    }
+
     newProposals.push({
       id: args.proposalId,
       title,
       slug: `${slugify(title)}-${args.proposalId.slice(-6)}`,
       summary: extractSummary(args.description, title),
-      state: inferPartialState(latestBlock, BigInt(args.voteStart), BigInt(args.voteEnd)),
+      state: derivedState,
       proposer: args.proposer,
       createdAt,
-      votingStartsAt: createdAt,
-      votingEndsAt: createdAt,
+      votingStartsAt: voteStartAt || createdAt,
+      votingEndsAt: voteEndAt || createdAt,
       description: args.description,
       turnout: 0,
       votes: { for: forVotes, against: againstVotes, abstain: abstainVotes, quorum: 0 },
@@ -167,14 +278,14 @@ async function buildProposalsList(proposalLogs: any[], voteLogs: any[], latestBl
         calldata: args.calldatas[index],
         summary: buildActionSummary(args.signatures[index], target)
       })),
-      timeline: [{ label: "Created", timestamp: createdAt, complete: true, note: "ProposalCreated event loaded from the governor.", icon: "plus", actor: args.proposer }],
+      timeline,
       voters: stats ? stats.voteList : [],
       loadStatus: { isPartial: false, message: "Client synced.", estimate: "" }
     } as Proposal);
   }
 
   newProposals.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  return newProposals;
+  return { proposals: newProposals, isDirty };
 }
 
 export function useDaoSync(dao: DaoConfig, initialStartBlock: number) {
@@ -198,16 +309,24 @@ export function useDaoSync(dao: DaoConfig, initialStartBlock: number) {
           delete cachedData.lastBlock;
         }
         
-        if (!cachedData) cachedData = { syncedRanges: [], proposalLogs: [], voteLogs: [] };
+        if (!cachedData) cachedData = { syncedRanges: [], proposalLogs: [], voteLogs: [], queuedLogs: [], executedLogs: [], extendedLogs: [], blockTimestampsCache: {}, computedProposals: null };
         if (!cachedData.syncedRanges) cachedData.syncedRanges = [];
-        
+        if (!cachedData.queuedLogs) cachedData.queuedLogs = [];
+        if (!cachedData.executedLogs) cachedData.executedLogs = [];
+        if (!cachedData.extendedLogs) cachedData.extendedLogs = [];
+        if (!cachedData.blockTimestampsCache) cachedData.blockTimestampsCache = {};
+
         const latestBlock = await client.getBlockNumber();
         const targetStartBlock = BigInt(initialStartBlock);
 
         // **INITIAL UI UPDATE**: Immediately show proposals from cache before syncing completes
-        if (cachedData.proposalLogs.length > 0 && mounted) {
-           const cachedProposals = await buildProposalsList(cachedData.proposalLogs, cachedData.voteLogs, latestBlock, client);
+        if (cachedData.computedProposals && mounted) {
+           setProposals(cachedData.computedProposals);
+        } else if (cachedData.proposalLogs.length > 0 && mounted) {
+           const { proposals: cachedProposals, isDirty } = await buildProposalsList(cachedData.proposalLogs, cachedData.voteLogs, cachedData.queuedLogs, cachedData.executedLogs, cachedData.extendedLogs, latestBlock, client, cachedData.blockTimestampsCache);
            if (mounted) setProposals(cachedProposals);
+           cachedData.computedProposals = cachedProposals;
+           await set(cacheKey, cachedData);
         }
         
         let mergedRanges: [bigint, bigint][] = cachedData.syncedRanges.map((r: [string, string]) => [BigInt(r[0]), BigInt(r[1])]);
@@ -276,7 +395,7 @@ export function useDaoSync(dao: DaoConfig, initialStartBlock: number) {
             // Add a small delay between batches to respect rate limits (BlastAPI public: ~40 req/sec)
             await new Promise(resolve => setTimeout(resolve, 300));
 
-            const [pLogs, vLogs] = await Promise.all([
+            const [pLogs, vLogs, qLogs, eLogs, extLogs] = await Promise.all([
               client.getLogs({
                 address: dao.contracts.governor as `0x${string}`,
                 event: proposalCreatedEvent,
@@ -286,6 +405,24 @@ export function useDaoSync(dao: DaoConfig, initialStartBlock: number) {
               client.getLogs({
                 address: dao.contracts.governor as `0x${string}`,
                 event: voteCastEvent,
+                fromBlock,
+                toBlock
+              }),
+              client.getLogs({
+                address: dao.contracts.governor as `0x${string}`,
+                event: proposalQueuedEvent,
+                fromBlock,
+                toBlock
+              }),
+              client.getLogs({
+                address: dao.contracts.governor as `0x${string}`,
+                event: proposalExecutedEvent,
+                fromBlock,
+                toBlock
+              }),
+              client.getLogs({
+                address: dao.contracts.governor as `0x${string}`,
+                event: proposalExtendedEvent,
                 fromBlock,
                 toBlock
               })
@@ -317,6 +454,29 @@ export function useDaoSync(dao: DaoConfig, initialStartBlock: number) {
               blockNumber: log.blockNumber?.toString()
             }));
 
+            const qLogsMapped = qLogs.map(log => ({
+              args: {
+                proposalId: log.args.proposalId?.toString(),
+                etaSeconds: log.args.etaSeconds?.toString()
+              },
+              blockNumber: log.blockNumber?.toString()
+            }));
+
+            const eLogsMapped = eLogs.map(log => ({
+              args: {
+                proposalId: log.args.proposalId?.toString()
+              },
+              blockNumber: log.blockNumber?.toString()
+            }));
+
+            const extLogsMapped = extLogs.map(log => ({
+              args: {
+                proposalId: log.args.proposalId?.toString(),
+                extendedDeadline: log.args.extendedDeadline?.toString()
+              },
+              blockNumber: log.blockNumber?.toString()
+            }));
+
             newProposalLogs.push(...pLogsMapped);
             newVoteLogs.push(...vLogsMapped);
 
@@ -324,9 +484,13 @@ export function useDaoSync(dao: DaoConfig, initialStartBlock: number) {
             mergedRanges = mergeRanges(mergedRanges);
 
             cachedData = {
+              ...cachedData,
               syncedRanges: mergedRanges.map(r => [r[0].toString(), r[1].toString()]),
               proposalLogs: [...cachedData.proposalLogs, ...pLogsMapped],
-              voteLogs: [...cachedData.voteLogs, ...vLogsMapped]
+              voteLogs: [...cachedData.voteLogs, ...vLogsMapped],
+              queuedLogs: [...(cachedData.queuedLogs || []), ...qLogsMapped],
+              executedLogs: [...(cachedData.executedLogs || []), ...eLogsMapped],
+              extendedLogs: [...(cachedData.extendedLogs || []), ...extLogsMapped]
             };
 
             await set(cacheKey, cachedData);
@@ -372,19 +536,19 @@ export function useDaoSync(dao: DaoConfig, initialStartBlock: number) {
           // **INCREMENTAL UI UPDATE**: Update the proposals state incrementally during the sync loop
           // instead of waiting until the entire blockchain is scanned.
           if (cachedData.proposalLogs.length > 0 && mounted) {
-             const currentProposals = buildProposalsList(cachedData.proposalLogs, cachedData.voteLogs, latestBlock, client);
-             // We don't await the whole build to avoid completely blocking the sync loop, 
-             // but we fire off an update so it populates as blocks are fetched.
-             currentProposals.then(newProposals => {
-               if (mounted) setProposals(newProposals);
-             });
+             const { proposals: currentProposals, isDirty } = await buildProposalsList(cachedData.proposalLogs, cachedData.voteLogs, cachedData.queuedLogs, cachedData.executedLogs, cachedData.extendedLogs, latestBlock, client, cachedData.blockTimestampsCache);
+             if (mounted) setProposals(currentProposals);
+             cachedData.computedProposals = currentProposals;
+             await set(cacheKey, cachedData);
           }
         }
 
         if (!mounted) return;
 
         // Build proposals at the very end to ensure it's fully synced
-        const finalProposals = await buildProposalsList(cachedData.proposalLogs, cachedData.voteLogs, latestBlock, client);
+        const { proposals: finalProposals, isDirty } = await buildProposalsList(cachedData.proposalLogs, cachedData.voteLogs, cachedData.queuedLogs, cachedData.executedLogs, cachedData.extendedLogs, latestBlock, client, cachedData.blockTimestampsCache);
+        cachedData.computedProposals = finalProposals;
+        await set(cacheKey, cachedData);
         
         if (!mounted) return;
         const finalScanned = calculateScannedBlocks(mergedRanges, targetStartBlock, latestBlock);

@@ -78,6 +78,45 @@ select {
   margin-bottom: 32px;
 }
 
+.nav-brand-area {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.sync-dot-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+}
+
+.sync-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: #10b981;
+  position: relative;
+}
+
+.sync-dot::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background-color: #10b981;
+  animation: pulse-ring 1.5s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+}
+
+@keyframes pulse-ring {
+  0% { transform: scale(1); opacity: 0.8; }
+  100% { transform: scale(2.5); opacity: 0; }
+}
+
 .brand {
   display: inline-flex;
   align-items: center;
@@ -150,10 +189,6 @@ select {
 
 .grid-3 {
   grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.proposal-grid {
-  grid-template-columns: minmax(0, 1.6fr) minmax(320px, 0.9fr);
 }
 
 .eyebrow {
@@ -238,6 +273,7 @@ select {
 .panel {
   border-radius: var(--radius-md);
   padding: 24px;
+  min-width: 0;
 }
 
 .section {
@@ -711,12 +747,17 @@ select {
   font-size: 0.82rem;
   cursor: pointer;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 .address-inline-wrap {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .ens-avatar-inline {
@@ -725,6 +766,7 @@ select {
   border-radius: 999px;
   object-fit: cover;
   border: 1px solid rgba(15, 23, 42, 0.08);
+  flex-shrink: 0;
 }
 
 .address-inline:hover {
@@ -838,6 +880,7 @@ select {
 .proposal-main-column {
   display: grid;
   gap: 24px;
+  min-width: 0;
 }
 
 .proposal-sidebar {
@@ -1165,6 +1208,8 @@ select {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .action-toggles {
@@ -1187,6 +1232,7 @@ select {
   background: rgba(15, 23, 42, 0.02);
   border-radius: var(--radius-sm);
   border: 1px solid var(--line);
+  min-width: 0;
 }
 
 .action-param-row {
@@ -1194,6 +1240,7 @@ select {
   gap: 16px;
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
   font-size: 0.85rem;
+  min-width: 0;
 }
 
 .action-param-key {
@@ -1206,10 +1253,12 @@ select {
   color: var(--ink);
   overflow-wrap: anywhere;
   word-break: break-all;
+  min-width: 0;
 }
 
 .action-raw-data {
   margin-top: 8px;
+  min-width: 0;
 }
 
 /* Tenderly Panel */
@@ -1249,6 +1298,7 @@ select {
   justify-content: space-between;
   padding: 12px 0;
   border-bottom: 1px solid var(--line);
+  min-width: 0;
 }
 
 .voter-row:last-child {
@@ -1270,6 +1320,7 @@ select {
   font-family: inherit;
   font-size: 1rem;
   line-height: 1.65;
+  overflow-x: auto;
 }
 
 .proposal-description h1,

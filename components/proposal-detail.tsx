@@ -78,11 +78,13 @@ export function ProposalDetail({
         </div>
 
         <div className="proposal-sidebar">
-          <VoteOnchainButton
-            chainId={dao.chainId}
-            governorAddress={dao.contracts.governor}
-            proposalId={proposal.id}
-          />
+          {proposal.state === "active" && (
+            <VoteOnchainButton
+              chainId={dao.chainId}
+              governorAddress={dao.contracts.governor}
+              proposalId={proposal.id}
+            />
+          )}
           <div className="panel sidebar-panel">
             <h3 className="sidebar-title">Final Votes</h3>
             <VoteSummaryCard votes={proposal.votes} />
