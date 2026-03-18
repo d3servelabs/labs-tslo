@@ -1,5 +1,9 @@
 # TSLO: Tally Shall Live On
 
+![Proposal History](docs/screenshot-proposal-history.png)
+
+![Proposal Detail](docs/screenshot-proposal-detail.png)
+
 TSLO is a free, open-source governance continuity app for DAOs that need a fast migration path from Tally. This repository currently implements the MVP foundation:
 
 - a Next.js governance frontend
