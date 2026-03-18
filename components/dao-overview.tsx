@@ -7,6 +7,7 @@ import { AddressDisplay } from "@/components/address-display";
 import { CreateProposalButton } from "@/components/create-proposal-button";
 import { LoadStatusBanner } from "@/components/load-status-banner";
 import { ProposalCard } from "@/components/proposal-card";
+import { ProposalCardSkeleton } from "@/components/proposal-card-skeleton";
 import { formatAddress, formatNumber, formatPercent } from "@/lib/format";
 import { DataAdapterKind } from "@/lib/data-adapter";
 import { DaoConfig } from "@/lib/types";
@@ -188,7 +189,13 @@ export function DaoOverview({
               {visibleProposals.map((proposal) => (
                 <ProposalCard key={proposal.id} dao={dao} proposal={proposal} />
               ))}
-              {hasMore && (
+              {isSyncing && (
+                <>
+                  <ProposalCardSkeleton />
+                  <ProposalCardSkeleton />
+                </>
+              )}
+              {!isSyncing && hasMore && (
                 <div style={{ display: "flex", justifyContent: "center", marginTop: "1rem" }}>
                   <button
                     className="button-secondary"
@@ -198,6 +205,12 @@ export function DaoOverview({
                   </button>
                 </div>
               )}
+            </>
+          ) : isSyncing ? (
+            <>
+              <ProposalCardSkeleton />
+              <ProposalCardSkeleton />
+              <ProposalCardSkeleton />
             </>
           ) : (
             <div className="empty-state">
