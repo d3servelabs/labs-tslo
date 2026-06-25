@@ -1,5 +1,9 @@
 # Repository Instructions
 
+## Vercel Preview Builds
+
+- Don't forget to trigger preview build on vercel if needed, the automated trigger has been turn off. Use your judgement if that's absolutely necessary, most of time not.
+
 ## Documentation Maintenance
 
 - For any project folder in the tracked source tree that has `5` or more files, maintain a `README.md` in that folder.
